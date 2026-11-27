@@ -177,6 +177,9 @@ textarea:focus, input:focus, select:focus {
   padding: 3px 8px; cursor: pointer; color: #4b5563;
 }
 .g-chip:hover { background: #f2f5fa; }
+/* 다 골라진 그룹의 [선택] — 한 번 더 누르면 풀린다는 걸 색으로 알린다 */
+.g-chip.is-on { background: #e8efff; border-color: #aabdea; color: #1e40af; font-weight: 700; }
+.g-chip.is-on:hover { background: #dde7fd; }
 
 .filters { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)); gap: 6px; }
 .filters select, .filters input { font-size: 12.5px; padding: 6px 8px; }
@@ -3082,13 +3085,15 @@ function buildWorkbookSpec(items, deposits, opts) {
         var cg = cards[i];
         var ckey = 'cardgrp::' + cg.card;
         var ccol = collapseOf(ckey, i, auto);
-        state.groupIndex[ckey] = { ids: idsOf(cg.items), label: cg.card, copyTitle: cg.card, collapsed: ccol };
+        var cgIds = idsOf(cg.items);
+        var cgOn = idsAllSelected(cgIds);
+        state.groupIndex[ckey] = { ids: cgIds, label: cg.card, copyTitle: cg.card, collapsed: ccol };
         html += '<tr class="month-row card-row" data-group="' + esc(ckey) + '"><td colspan="6"><div class="m-inner">';
         html += '<span class="caret">' + (ccol ? '▸' : '▾') + '</span>';
         html += '<span class="m-title">' + esc(cg.card) + '</span>';
         html += '<span class="m-meta">' + cg.count + '건 · ' + won(cg.sum) + '</span>';
         html += '<span class="m-act">';
-        html += '<button type="button" class="g-chip" data-act="select-group" data-group="' + esc(ckey) + '">선택</button>';
+        html += '<button type="button" class="g-chip' + (cgOn ? ' is-on' : '') + '" data-act="select-group" data-group="' + esc(ckey) + '"' + selBtnAttrs(cgOn) + '>선택</button>';
         html += '<button type="button" class="g-chip" data-act="copy-group" data-group="' + esc(ckey) + '">복사</button>';
         html += '</span></div></td></tr>';
         if (ccol) continue;
@@ -3101,7 +3106,9 @@ function buildWorkbookSpec(items, deposits, opts) {
         var key = 'month::' + mg.month;
         var msum = sumAmount(mg.items);
         var col = collapseOf(key, i, auto);
-        state.groupIndex[key] = { ids: idsOf(mg.items), label: monthTitle(mg.month), copyTitle: '정산', collapsed: col };
+        var mgIds = idsOf(mg.items);
+        var mgOn = idsAllSelected(mgIds);
+        state.groupIndex[key] = { ids: mgIds, label: monthTitle(mg.month), copyTitle: '정산', collapsed: col };
         var tags = uniqueTags(mg.items);
         html += '<tr class="month-row" data-group="' + esc(key) + '"><td colspan="6"><div class="m-inner">';
         html += '<span class="caret">' + (col ? '▸' : '▾') + '</span>';
@@ -3110,7 +3117,7 @@ function buildWorkbookSpec(items, deposits, opts) {
         html += '<span class="m-meta">' + mg.items.length + '건 · ' + won(msum) + '</span>';
         html += monthBalHtml(mg.month, fullMonth[mg.month] || 0);
         html += '<span class="m-act">';
-        html += '<button type="button" class="g-chip" data-act="select-group" data-group="' + esc(key) + '">선택</button>';
+        html += '<button type="button" class="g-chip' + (mgOn ? ' is-on' : '') + '" data-act="select-group" data-group="' + esc(key) + '"' + selBtnAttrs(mgOn) + '>선택</button>';
         html += '<button type="button" class="g-chip" data-act="copy-group" data-group="' + esc(key) + '">복사</button>';
         html += '</span></div></td></tr>';
         if (col) continue;
@@ -3178,8 +3185,9 @@ function buildWorkbookSpec(items, deposits, opts) {
       el.innerHTML = '같은 내역끼리 모아 보여줘요. 키워드를 넣으면 그 말이 든 내역만 합산해요.';
       return;
     }
+    var dOn = idsAllSelected(idsOf(subset));
     el.innerHTML = '<div class="row2"><span>‘' + esc(state.descQuery) + '’ <b>' + subset.length + '건 · ' + won(sumAmount(subset)) + '</b></span>' +
-      '<button type="button" class="g-chip" data-act="select-desc">이 결과 선택</button>' +
+      '<button type="button" class="g-chip' + (dOn ? ' is-on' : '') + '" data-act="select-desc"' + selBtnAttrs(dOn) + '>이 결과 선택</button>' +
       '<button type="button" class="g-chip" data-act="copy-desc">복사</button></div>';
   }
 
@@ -3303,6 +3311,34 @@ function buildWorkbookSpec(items, deposits, opts) {
     for (var i = 0; i < ids.length; i++) state.selected[ids[i]] = true;
     renderList();
     updateSelBar();
+  }
+
+  function idsAllSelected(ids) {
+    if (!ids || !ids.length) return false;
+    for (var i = 0; i < ids.length; i++) {
+      if (!state.selected[ids[i]]) return false;
+    }
+    return true;
+  }
+
+  /* 그룹 머리글·검색 결과의 [선택] — 다 골라져 있으면 한 번 더 눌렀을 때 그 묶음을 모두 푼다.
+     고른 건수는 넣은 만큼 +(더함), 푼 만큼 -(뺌)으로 돌려준다. */
+  function toggleSelectIds(ids) {
+    if (!ids || !ids.length) return 0;
+    var i, all = idsAllSelected(ids);
+    for (i = 0; i < ids.length; i++) {
+      if (all) delete state.selected[ids[i]];
+      else state.selected[ids[i]] = true;
+    }
+    renderList();
+    updateSelBar();
+    return all ? -ids.length : ids.length;
+  }
+
+  /* 선택 토글 버튼이 '다 골라짐' 상태면 눌러 둔 모양(is-on)으로 보여 준다 */
+  function selBtnAttrs(on) {
+    return ' aria-pressed="' + (on ? 'true' : 'false') + '"' +
+      (on ? ' title="다시 누르면 선택을 풀어요"' : '');
   }
 
   function clearSelection() {
@@ -4687,7 +4723,10 @@ function buildWorkbookSpec(items, deposits, opts) {
       }
       if (act === 'select-group') {
         var g = state.groupIndex[group];
-        if (g) selectIds(g.ids);
+        if (g) {
+          var took = toggleSelectIds(g.ids);
+          if (took < 0) toast(-took + '건 선택을 풀었어요');
+        }
         return;
       }
       if (act === 'copy-group') {
@@ -4705,7 +4744,10 @@ function buildWorkbookSpec(items, deposits, opts) {
     $('descTools').addEventListener('click', function (e) {
       var act = e.target.getAttribute('data-act');
       if (!act) return;
-      if (act === 'select-desc') selectIds(state.descIds);
+      if (act === 'select-desc') {
+        var dTook = toggleSelectIds(state.descIds);
+        if (dTook < 0) toast(-dTook + '건 선택을 풀었어요');
+      }
       if (act === 'copy-desc') {
         var list = itemsByIds(state.descIds);
         if (list.length) copyText(buildSelectionText(list), '복사했어요');
