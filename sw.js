@@ -8,16 +8,18 @@
  *
  * 오프라인에서도 열리도록 앱 화면·아이콘·매니페스트와 외부 SheetJS(CDN)까지 캐시한다.
  */
-var CACHE = 'expense-organizer-v9';
-var SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+var CACHE = 'expense-organizer-v10';
+var SHELL = ['./', './index.html', './app.webmanifest', './pickle-1795764465990.png', './pickle-1795764462755.png'];
 
 self.addEventListener('install', function (event) {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE).then(function (cache) {
-      return cache.addAll(SHELL);
-    })['catch'](function () {
-      /* 미리 받기 실패는 설치를 막지 않는다(첫 방문에서 하나씩 캐시된다). */
+      /* 파일마다 따로 담는다 — 하나가 없어(404) addAll 이 통째로 실패해
+         아무것도 못 담는 일이 없게. (배포판은 build_pwa.py 가 이름을 맞춰 준다) */
+      return Promise.all(SHELL.map(function (url) {
+        return cache.add(url)['catch'](function () { return null; });
+      }));
     })
   );
 });
