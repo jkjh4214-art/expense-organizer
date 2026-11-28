@@ -304,12 +304,15 @@ table.sheet {
 .sheet td.c-set { text-align: center; }
 
 .sheet tr.row.alt td { background: var(--alt); }
-/* v13: 정산 완료 행은 옅게 — 미정산이 한눈에 도드라지게 (체크박스·날짜는 그대로 누를 수 있게) */
-.sheet tr.row.is-settled td { background: #f7f8fa; }
-.sheet tr.row.is-settled td.c-amt input { color: #9ca3af; text-decoration: line-through; }
-.sheet tr.row.is-settled td.c-desc input, .sheet tr.row.is-settled td.c-card input { color: #8b95a3; }
-.sheet tr.row.is-settled td.c-date .date-btn { color: #8b95a3; }
-.sheet tr.row.is-settled .settle-chip { background: #f1f3f6; border-color: #dfe4ea; color: #7b8794; }
+/* v13: 정산 완료 행은 옅게 — 미정산이 한눈에 도드라지게 (체크박스·날짜는 그대로 누를 수 있게)
+   v15: 흰색과 거의 같던 #f7f8fa 를 연한 초록으로 올려 폰 화면에서도 확실히 구분되게 했다.
+        배경은 background-color 만 바꿔, 구분 색 띠(cat-* 의 background-image)를 지우지 않는다. */
+.sheet tr.row.is-settled td { background-color: #e0f0e6; }
+.sheet tr.row.is-settled td.c-amt input { color: #6f8074; text-decoration: line-through; }
+.sheet tr.row.is-settled td.c-desc input, .sheet tr.row.is-settled td.c-card input { color: #61705f; }
+.sheet tr.row.is-settled td.c-date .date-btn { color: #61705f; }
+/* 정산 칩도 초록으로 꽉 채워 '끝났다'가 한눈에 보이게 */
+.sheet tr.row.is-settled .settle-chip { background: #15803d; border-color: #15803d; color: #fff; }
 .sheet tr.row.is-sel td { background: var(--sel); }
 .sheet tr.row.is-off td { opacity: .45; }
 
@@ -971,8 +974,10 @@ body.is-exited { overflow: hidden; }
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="dirtyTitle">
     <h3 id="dirtyTitle">저장하지 않은 변경</h3>
     <p class="hint" id="dirtyNote">데이터가 변경된 사항이 있습니다. 저장하시겠습니까?</p>
-    <div class="modal-actions">
-      <button type="button" class="btn ghost" id="dirtyNo">아니오</button>
+    <p class="hint" id="dirtyBackNote" hidden>뒤로가기를 눌렀어요. 저장하지 않고 나가면 바꾼 내용은 사라져요.</p>
+    <div class="modal-actions exit-actions">
+      <button type="button" class="btn ghost" id="dirtyStay">계속 작업</button>
+      <button type="button" class="btn ghost danger" id="dirtyNo">아니오</button>
       <button type="button" class="btn primary" id="dirtyYes">예</button>
     </div>
   </div>
@@ -2992,6 +2997,7 @@ function parseBackup(text) {
     amountPayload: null,
     amountIssues: [],
     pendingAction: null,
+    pendingLeave: false,
     backupPending: null,
     exited: false
   };
@@ -3119,9 +3125,12 @@ function parseBackup(text) {
     var d = isDirty();
     state.dirty = d;
     var el = $('saveState');
-    if (!el) return;
-    el.textContent = d ? '저장 안 됨' : (state.lastSavedAt ? '저장됨 ' + state.lastSavedAt : '저장됨');
-    el.className = 'savestate' + (d ? ' is-dirty' : '');
+    if (el) {
+      el.textContent = d ? '저장 안 됨' : (state.lastSavedAt ? '저장됨 ' + state.lastSavedAt : '저장됨');
+      el.className = 'savestate' + (d ? ' is-dirty' : '');
+    }
+    /* v15: 저장 안 한 변경이 있으면 뒤로가기 가드를 한 장 얹어 둔다 */
+    syncGuard();
   }
 
   /* 열었을 때 / 저장했을 때의 상태를 기억한다 */
@@ -3219,29 +3228,145 @@ function parseBackup(text) {
   }
 
   function closeDirty() {
+    var leaving = state.pendingLeave;
     $('dirtyModal').hidden = true;
     state.pendingAction = null;
+    state.pendingLeave = false;
+    if ($('dirtyBackNote')) $('dirtyBackNote').hidden = true;
+    /* 뒤로가기로 띄운 창을 [계속 작업]/바깥 누르기로 닫았으면 가드를 다시 얹는다 */
+    if (leaving) restoreGuard();
   }
 
   /* save true → [예]: 저장하고 진행 · false → [아니오]: 저장 없이 진행 */
   function resolveDirty(save) {
     var fn = state.pendingAction;
+    var leaving = state.pendingLeave;
     $('dirtyModal').hidden = true;
     state.pendingAction = null;
+    state.pendingLeave = false;
+    if ($('dirtyBackNote')) $('dirtyBackNote').hidden = true;
+    if (leaving) {
+      /* 뒤로가기로 물은 경우 — 저장하고 나가기 / 저장하지 않고 나가기 */
+      if (save && !saveNow(true)) { pushGuardNow(); return; }   /* 저장 실패 → 앱에 남는다 */
+      leaveNow();
+      return;
+    }
     if (save) saveNow(true);
     if (typeof fn === 'function') fn();
   }
 
   /* 브라우저 창 닫기·새로고침·뒤로가기 */
   function onBeforeUnload(e) {
-    /* v13: [종료]에서 이미 저장할지 물어봤으면 또 묻지 않는다 */
-    if (state.exited) return;
+    /* v13: [종료]에서 이미 저장할지 물어봤으면 또 묻지 않는다
+       v15: 뒤로가기 창에서 '나가기'를 골랐으면 브라우저가 또 묻지 않게 한다 */
+    if (state.exited || guardOff) return;
     if (!isDirty()) return;
     if (e) {
       e.preventDefault();
       e.returnValue = '';
     }
     return '';
+  }
+
+  /* ---------------- v15: 안드로이드 뒤로가기 가드 ---------------- */
+  /* 저장 안 한 변경이 생기면 히스토리에 '가드' 한 장을 얹는다. 그래야 안드로이드 뒤로가기
+     한 번에 앱이 그냥 꺼지지 않고, 열린 창을 닫거나 #dirtyModal 로 저장할지 물을 수 있다.
+       - 가드는 한 장만 유지한다(guardArmed 로 중복 push 를 막는다).
+       - 브라우저는 사용자가 화면을 한 번 건드린 뒤에만 pushState 를 받아 준다(크롬 정책).
+         그래서 첫 조작(포인터·키)에서 guardUsable 을 켜고, 그 뒤 변경부터 가드를 얹는다.
+       - 사용자가 '나가기'를 골랐으면(guardOff) 더 막지 않는다.
+     가드가 없을 때의 뒤로가기는 브라우저가 이미 처리한 뒤라 막을 수 없다(그대로 나간다). */
+  var GUARD_STATE = { expGuard: 1 };
+  var guardArmed = false;    /* 지금 히스토리에 가드 한 장이 얹혀 있는가 */
+  var guardUsable = false;   /* pushState 를 받아 주는 상태인가(첫 사용자 조작 뒤) */
+  var guardOff = false;      /* 사용자가 떠나기를 골랐다 — 더 막지 않는다 */
+
+  function historyOk() {
+    try { return typeof history !== 'undefined' && !!history && typeof history.pushState === 'function'; }
+    catch (e) { return false; }
+  }
+
+  function pushGuardNow() {
+    if (guardArmed || guardOff || state.exited) return false;
+    if (!guardUsable || !historyOk()) return false;
+    try {
+      history.pushState(GUARD_STATE, '');
+    } catch (e) {
+      guardUsable = false;      /* 정책상 못 쓰면 다음 조작에서 다시 시도한다 */
+      return false;
+    }
+    guardArmed = true;
+    return true;
+  }
+
+  /* 데이터가 바뀐 직후(그리고 저장 안 한 변경이 있을 때만) 가드를 얹는다 */
+  function syncGuard() {
+    if (!isDirty()) return false;
+    return pushGuardNow();
+  }
+
+  /* 첫 사용자 조작 — 이때부터 pushState 를 받아 준다 */
+  function armGuard() {
+    guardUsable = true;
+    syncGuard();
+  }
+
+  /* 가드가 걷힌 뒤(창을 닫았거나 '계속 작업'을 골랐을 때) 다시 한 장 얹는다 */
+  function restoreGuard() {
+    guardArmed = false;
+    if (!isDirty() || guardOff) return false;
+    return pushGuardNow();
+  }
+
+  /* 열려 있는 보조 창(모달·팝업)을 하나 닫는다. 닫았으면 true */
+  function closeTopLayer() {
+    if (!$('amountModal').hidden) { closeAmountCheck(); return true; }
+    if (!$('itemModal').hidden) { closeItemEdit(); return true; }
+    if (!$('depModal').hidden) { closeDeposit(); return true; }
+    if (!$('backupModal').hidden) { closeBackupAsk(); return true; }
+    if (!$('exitModal').hidden) { closeExitAsk(); return true; }
+    if (!$('dirtyModal').hidden) { closeDirty(); return true; }
+    if (!$('modal').hidden) { $('modal').hidden = true; return true; }
+    if (!$('monthPop').hidden) { openMonthPop(false); return true; }
+    return false;
+  }
+
+  /* 뒤로가기로 물을 때 — 저장할지 고르게 한다 */
+  function askLeaveByBack() {
+    state.pendingAction = null;
+    state.pendingLeave = true;
+    $('dirtyNote').textContent = '데이터가 변경된 사항이 있습니다. 저장하시겠습니까?';
+    if ($('dirtyBackNote')) $('dirtyBackNote').hidden = false;
+    $('dirtyModal').hidden = false;
+  }
+
+  /* '나가기'를 골랐을 때 — 지금은 가드 앞장(앱을 열었던 자리)에 있으니 한 번 더 뒤로 가면 나간다.
+     갈 곳이 없으면(첫 장) 종료 화면으로 마무리한다. */
+  function leaveNow() {
+    guardOff = true;
+    state.pendingLeave = false;
+    if ($('dirtyBackNote')) $('dirtyBackNote').hidden = true;
+    try {
+      if (typeof history !== 'undefined' && history && typeof history.back === 'function') history.back();
+    } catch (e) { /* 못 가도 아래 종료 화면으로 마무리한다 */ }
+    setTimeout(function () { if (!state.exited) doExit(); }, 80);
+  }
+
+  function onPopState() {
+    var fromGuard = guardArmed;
+    guardArmed = false;              /* 방금 가드 한 장을 썼다 */
+    if (guardOff || state.exited) return;
+    if (!fromGuard) return;          /* 우리가 얹은 가드가 아니라 진짜 이동 — 그대로 둔다 */
+
+    /* 1) 열려 있는 보조 창은 뒤로가기 한 번으로 닫는다(가드는 다시 얹는다) */
+    if (closeTopLayer()) { pushGuardNow(); return; }
+
+    /* 2) 저장 안 한 변경이 있으면 바로 꺼지지 않게 묻는다 */
+    if (isDirty()) { askLeaveByBack(); return; }
+
+    /* 3) 저장 안 한 게 없으면 그대로 나가게 둔다 — 가드 한 장만 걷혔으니 한 번 더 눌러야 하므로
+       사용자가 누른 뒤로가기를 그대로 이어 준다 */
+    try { history.back(); } catch (e) { }
   }
 
   /* ---------------- 저장 버튼 ---------------- */
@@ -3295,6 +3420,8 @@ function parseBackup(text) {
     updateSelBar();      /* body 클래스(has-selbar)를 원래대로 돌려놓는다 */
     renderAll();
     updateToTop();
+    guardOff = false;    /* v15: 다시 열었으니 뒤로가기 가드도 다시 살린다 */
+    syncGuard();         /* v15: 저장 안 한 변경이 남아 있으면 가드를 다시 얹는다 */
   }
 
   /* ---------------- v13: 맨 위로 ---------------- */
@@ -5784,6 +5911,7 @@ function parseBackup(text) {
     });
     $('dirtyYes').addEventListener('click', function () { resolveDirty(true); });
     $('dirtyNo').addEventListener('click', function () { resolveDirty(false); });
+    $('dirtyStay').addEventListener('click', closeDirty);
     $('dirtyModal').addEventListener('click', function (e) { if (e.target === this) closeDirty(); });
 
     /* 추가 모달 */
@@ -5856,6 +5984,14 @@ function parseBackup(text) {
     $('toTopBtn').addEventListener('click', backToTop);
     window.addEventListener('scroll', updateToTop);
 
+    /* v15: 뒤로가기 가드 — 첫 사용자 조작에서 pushState 를 쓸 수 있게 되고,
+       뒤로가기(popstate)가 오면 열린 창을 닫거나 저장할지 묻는다 */
+    if (document.addEventListener) {
+      document.addEventListener('pointerdown', armGuard, true);
+      document.addEventListener('keydown', armGuard, true);
+    }
+    window.addEventListener('popstate', onPopState);
+
     /* 엑셀 라이브러리를 못 불러왔으면 다른 CDN으로 한 번 더 */
     window.addEventListener('load', function () {
       if (typeof XLSX !== 'undefined') return;
@@ -5885,6 +6021,7 @@ function parseBackup(text) {
     updateUndoBtn();
     /* 처음에 닫혀 있는 것들 (HTML 의 hidden 과 같은 상태) */
     $('dirtyModal').hidden = true;
+    $('dirtyBackNote').hidden = true;
     $('amountModal').hidden = true;
     $('exitModal').hidden = true;
     $('exitScreen').hidden = true;
@@ -5893,6 +6030,9 @@ function parseBackup(text) {
     $('monthPop').hidden = true;
     $('previewCard').hidden = true;
     $('inputCard').hidden = true;
+    $('modal').hidden = true;
+    $('itemModal').hidden = true;
+    $('depModal').hidden = true;
     markClean();
     wire();
   }

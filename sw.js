@@ -8,7 +8,7 @@
  *
  * 오프라인에서도 열리도록 앱 화면·아이콘·매니페스트와 외부 SheetJS(CDN)까지 캐시한다.
  */
-var CACHE = 'expense-organizer-v14';
+var CACHE = 'expense-organizer-v15';
 var SHELL = ['./', './index.html', './app.webmanifest', './pickle-1795764465990.png', './pickle-1795764462755.png'];
 
 self.addEventListener('install', function (event) {
