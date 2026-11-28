@@ -613,7 +613,7 @@ body.is-exited { overflow: hidden; }
   </header>
 
   <div class="storage-warn" id="storageWarn" hidden>
-    이 브라우저에서는 저장을 쓸 수 없어요. 새로고침하면 내역이 사라지니 <b>CSV로 백업</b>해 두세요.
+    이 브라우저에서는 저장을 쓸 수 없어요. 새로고침하면 내역이 사라지니 <b>백업 저장</b>으로 파일을 받아 두세요.
   </div>
 
   <div class="tools">
@@ -769,6 +769,12 @@ body.is-exited { overflow: hidden; }
   <details class="card more">
     <summary>데이터</summary>
     <div class="btnrow">
+      <button type="button" class="btn ghost small" id="backupSaveBtn" title="내역·이체·카드 약어를 JSON 파일 하나로 저장">백업 저장</button>
+      <button type="button" class="btn ghost small" id="backupLoadBtn" title="백업 JSON 파일로 되돌리기">백업 불러오기</button>
+      <input type="file" id="backupInput" class="hidden" accept=".json,application/json">
+    </div>
+    <p class="hint">백업 파일에는 <b>내역·이체(입금) 기록·카드 약어</b>가 모두 들어가요. 불러오면 지금 화면이 그 파일 내용으로 바뀌고, 아직 저장 전이니 <b>↩ 실행취소</b>로 되돌릴 수 있어요.</p>
+    <div class="btnrow">
       <button type="button" class="btn ghost danger" id="resetBtn">전체 초기화</button>
     </div>
     <p class="hint">내역은 이 브라우저에만 저장돼요. 올린 파일과 입력한 내용은 어디로도 전송되지 않습니다.</p>
@@ -805,6 +811,7 @@ body.is-exited { overflow: hidden; }
       <li><b>맨 위로</b> — 아래로 한참 내려가면 오른쪽 아래에 <b>↑</b> 단추가 나타나요. 누르면 맨 위로 돌아가요.</li>
       <li><b>실행취소·저장</b> — 오른쪽 위 <b>↩ 실행취소</b>를 누르면 바로 앞 상태(항목·이체 기록·카드 약어)로 돌아가요. 지우기·등록·고치기·정산·초기화까지 30단계까지 되돌릴 수 있어요(앱을 닫으면 이력은 사라져요). 바꾼 내용은 <b>[저장]</b>을 눌렀을 때만 저장돼요. 저장하기 전에 창을 닫거나 새로고침하면 한 번 더 물어봐요.</li>
       <li><b>종료</b> — 오른쪽 위 <b>[종료]</b>를 누르면 앱을 닫아요. 저장하지 않은 변경이 있으면 <b>저장 후 종료</b>·<b>저장하지 않고 종료</b>·<b>계속 작업</b> 중에서 골라요. 브라우저가 탭을 닫지 못하면 종료 화면이 뜨고, 거기서 탭을 닫거나 <b>다시 열기</b>로 돌아와요.</li>
+      <li><b>백업 저장·불러오기</b> — <b>데이터</b> 칸의 <b>[백업 저장]</b>을 누르면 내역·이체 기록·카드 약어를 <code>expense-backup-20261128-1405.json</code> 같은 파일 하나로 받아요. 폰을 바꾸거나 저장소를 비울 때 이 파일이 있으면 <b>[백업 불러오기]</b>로 그대로 되살릴 수 있어요. 불러오면 확인을 한 번 묻고, 저장은 따로 <b>[저장]</b>을 눌러야 하며, 잘못 불러왔으면 <b>↩ 실행취소</b>로 돌아가요.</li>
       <li><b>엑셀 다운</b> — 지금 화면에 보이는 목록(필터·정렬 그대로)을 <code>.xlsx</code>로 내려받아요. <b>지출내역</b>·<b>월별정산요약</b>·<b>입금이체내역</b> 세 장으로 저장되고 합계·잔액은 <code>=SUM</code>·<code>=SUMIF</code> 수식으로 들어가요. 인터넷이 없어 엑셀 도구를 못 불러오면 CSV로 대신 받을 수 있어요.</li>
     </ul>
   </details>
@@ -944,6 +951,18 @@ body.is-exited { overflow: hidden; }
       <span class="grow"></span>
       <button type="button" class="btn ghost" id="amountCancel">취소</button>
       <button type="button" class="btn primary" id="amountOk">확인하고 반영</button>
+    </div>
+  </div>
+</div>
+
+  <div class="modal" id="backupModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="backupTitle">
+    <h3 id="backupTitle">백업 불러오기</h3>
+    <p class="hint" id="backupNote">이 백업 파일로 지금 화면을 바꿔요.</p>
+    <div class="modal-actions">
+      <span class="grow"></span>
+      <button type="button" class="btn ghost" id="backupCancel">취소</button>
+      <button type="button" class="btn primary" id="backupOk">불러오기</button>
     </div>
   </div>
 </div>
@@ -2769,6 +2788,159 @@ function toTopShouldShow(y, threshold) {
   return n > t;
 }
 
+/* ---------- v14: 백업 저장 · 백업 불러오기 ---------- */
+/* 내역(items) · 이체(deposits) · 카드 약어(aliases)를 한 JSON 파일로 내려받고 되살린다.
+   파일 이름: expense-backup-YYYYMMDD-HHMM.json
+   불러오기는 ① JSON·구조 검증(parseBackup) → ② 화면에서 한 번 더 확인 →
+   ③ 그때의 상태를 실행취소 스택에 쌓고 반영(ui.js) 순서다. */
+var BACKUP_APP = 'expense-organizer';
+var BACKUP_VERSION = 1;
+
+function isPlainList(v) {
+  return Object.prototype.toString.call(v) === '[object Array]';
+}
+
+/* 'YYYYMMDD-HHMM' — 파일 이름에 붙는 시각. Date 객체나 'YYYY-MM-DDTHH:MM' 글자를 받는다. */
+function backupStamp(when) {
+  var d = (when && typeof when === 'object' && typeof when.getFullYear === 'function') ? when : null;
+  if (!d) {
+    var m = String(when === null || when === undefined ? '' : when)
+      .match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+    if (m) return m[1] + m[2] + m[3] + '-' + m[4] + m[5];
+    d = new Date();
+  }
+  return '' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) +
+    '-' + pad2(d.getHours()) + pad2(d.getMinutes());
+}
+
+function backupFileName(when) {
+  return 'expense-backup-' + backupStamp(when) + '.json';
+}
+
+/* 백업 파일 안에 적는 시각 — 'YYYY-MM-DD HH:MM' */
+function backupTimeText(when) {
+  var d = (when && typeof when === 'object' && typeof when.getFullYear === 'function') ? when : null;
+  if (!d) {
+    var m = String(when === null || when === undefined ? '' : when)
+      .match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+    if (m) return m[1] + '-' + m[2] + '-' + m[3] + ' ' + m[4] + ':' + m[5];
+    d = new Date();
+  }
+  return isoOf(d) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+
+function backupAliasPairs(list) {
+  var out = [], i, src = isPlainList(list) ? list : [];
+  for (i = 0; i < src.length; i++) {
+    if (!isPlainList(src[i])) continue;
+    var a = String(src[i][0] === null || src[i][0] === undefined ? '' : src[i][0]).replace(/\s/g, '');
+    var n = String(src[i][1] === null || src[i][1] === undefined ? '' : src[i][1]).replace(/^\s+|\s+$/g, '');
+    if (a && n) out.push([a, n]);
+  }
+  return out;
+}
+
+/* 지금 메모리의 전체 데이터를 백업 파일 내용(객체)으로 만든다 */
+function buildBackupPayload(items, deposits, aliases, opts) {
+  opts = opts || {};
+  var its = [], dps = [], i;
+  var srcItems = isPlainList(items) ? items : [];
+  for (i = 0; i < srcItems.length; i++) its.push(srcItems[i]);
+  var srcDeps = isPlainList(deposits) ? deposits : [];
+  for (i = 0; i < srcDeps.length; i++) dps.push(srcDeps[i]);
+  var als = backupAliasPairs(aliases);
+  return {
+    app: BACKUP_APP,
+    version: BACKUP_VERSION,
+    createdAt: backupTimeText(opts.when || opts.now || null),
+    counts: { items: its.length, deposits: dps.length, aliases: als.length },
+    items: its,
+    deposits: dps,
+    aliases: als
+  };
+}
+
+function backupSavedText(counts) {
+  var c = counts || {};
+  return '백업 파일(' + formatNumber(c.items || 0) + '건, 입금 ' + formatNumber(c.deposits || 0) + '건)을 저장했어요';
+}
+
+function backupLoadedText(counts) {
+  var c = counts || {};
+  return '백업 파일(' + formatNumber(c.items || 0) + '건, 입금 ' + formatNumber(c.deposits || 0) + '건)을 불러왔어요 · [저장]을 눌러 두세요';
+}
+
+/* 백업 내용을 한 줄로 — '2026-11-28 14:05 백업 · 내역 5건 · 입금 2건 · 카드 약어 17개' */
+function backupSummaryText(meta) {
+  var c = (meta && meta.counts) || {};
+  var when = String((meta && meta.createdAt) || '').replace(/^\s+|\s+$/g, '');
+  var bits = [];
+  if (when) bits.push(when + ' 백업');
+  bits.push('내역 ' + formatNumber(c.items || 0) + '건');
+  bits.push('입금 ' + formatNumber(c.deposits || 0) + '건');
+  bits.push('카드 약어 ' + formatNumber(c.aliases || 0) + '개');
+  return bits.join(' · ');
+}
+
+/* 항목 한 건으로 쓸 수 있는지 — 금액이 있고 0원이 아니면 된다(나머지는 화면이 기본값을 채운다) */
+function backupItemOk(o) {
+  if (!o || typeof o !== 'object' || isPlainList(o)) return false;
+  var a = typeof o.amount === 'number' ? o.amount : parseAmount(o.amount);
+  if (a === null || !isFinite(a) || !a) return false;
+  return true;
+}
+
+/* 백업 파일 글자(JSON)를 검사해 되살릴 데이터를 돌려준다.
+   잘못된 파일이면 ok:false 와 함께 사람이 읽을 이유(error)를 준다 — 이때는 데이터를 건드리지 않는다. */
+function parseBackup(text) {
+  var out = { ok: false, error: '', createdAt: '', dropped: 0, counts: { items: 0, deposits: 0, aliases: 0 }, data: null };
+  var s = String(text === null || text === undefined ? '' : text).replace(/^\uFEFF/, '');
+  s = s.replace(/^\s+|\s+$/g, '');
+  if (!s) { out.error = '파일이 비어 있어요'; return out; }
+  var root = null;
+  try { root = JSON.parse(s); } catch (e) { out.error = 'JSON 파일이 아니에요'; return out; }
+
+  var items, deps, als, created = '';
+  if (isPlainList(root)) {
+    /* 항목 목록만 있는 파일도 받아 준다 */
+    items = root; deps = []; als = [];
+  } else if (root && typeof root === 'object') {
+    if (root.app && String(root.app) !== BACKUP_APP) { out.error = '지출 정리 백업 파일이 아니에요'; return out; }
+    items = root.items;
+    deps = (root.deposits === undefined || root.deposits === null) ? [] : root.deposits;
+    als = (root.aliases === undefined || root.aliases === null) ? [] : root.aliases;
+    if (typeof root.createdAt === 'string') created = root.createdAt.replace(/^\s+|\s+$/g, '');
+  } else {
+    out.error = '백업 파일 모양이 아니에요';
+    return out;
+  }
+  if (!isPlainList(items)) { out.error = "'items' 목록이 없어요"; return out; }
+  if (!isPlainList(deps)) { out.error = "'deposits' 목록이 잘못됐어요"; return out; }
+  if (!isPlainList(als)) {
+    if (als && typeof als === 'object' && isPlainList(als.list)) als = als.list;
+    else { out.error = "'aliases' 목록이 잘못됐어요"; return out; }
+  }
+  if (!items.length) { out.error = '백업 파일에 내역이 없어요'; return out; }
+
+  var okItems = [], okDeps = [], dropped = 0, i, d;
+  for (i = 0; i < items.length; i++) {
+    if (backupItemOk(items[i])) okItems.push(items[i]);
+    else dropped++;
+  }
+  if (!okItems.length) { out.error = '넣을 수 있는 내역이 없어요'; return out; }
+  for (i = 0; i < deps.length; i++) {
+    d = normalizeDeposit(deps[i]);
+    if (!d) { dropped++; continue; }
+    okDeps.push(deps[i]);
+  }
+  out.ok = true;
+  out.createdAt = created;
+  out.dropped = dropped;
+  out.data = { items: okItems, deposits: okDeps, aliases: backupAliasPairs(als) };
+  out.counts = { items: okItems.length, deposits: okDeps.length, aliases: out.data.aliases.length };
+  return out;
+}
+
 /* ==CORE-END== */
 
 /* =====================================================================
@@ -2820,6 +2992,7 @@ function toTopShouldShow(y, threshold) {
     amountPayload: null,
     amountIssues: [],
     pendingAction: null,
+    backupPending: null,
     exited: false
   };
 
@@ -3199,7 +3372,7 @@ function toTopShouldShow(y, threshold) {
     }
     var al = readJson(ALIAS_KEY);
     var seed = DEFAULT_CARD_ALIASES, ver = ALIAS_VERSION;
-    if (al && al.list && al.list.length) { seed = al.list; ver = al.version || 1; }
+    if (al && al.list && al.list.length) { seed = al.list; ver = al.version || al.v || 1; }
     else if (al && al.length) { seed = al; ver = 1; }
     var up = upgradeAliases(seed, ver);
     state.aliases = up.list;
@@ -4944,6 +5117,108 @@ function toTopShouldShow(y, threshold) {
     }
   }
 
+  /* ---------------- v14: 백업 저장 · 백업 불러오기 ---------------- */
+  /* 내역·이체·카드 약어를 한 JSON 파일로 내려받고, 그 파일로 되살린다.
+     불러오기는 바로 덮어쓰지 않고 ① 구조 검사 ② 확인 창 ③ 직전 상태를 실행취소 스택에 쌓기 순서로 한다.
+     되살린 뒤에는 저장을 하지 않으므로 상단이 '저장 안 됨' 이 되고, 사용자가 [저장]을 눌러야 남는다. */
+  function downloadText(name, text, mime) {
+    var blob = new Blob([text], { type: mime || 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  }
+
+  function exportBackup() {
+    if (!state.items.length && !state.deposits.length) { toast('백업할 내역이 없어요'); return; }
+    var now = new Date();
+    var payload, text;
+    payload = buildBackupPayload(state.items, state.deposits, state.aliases, { when: now });
+    try {
+      text = JSON.stringify(payload);
+    } catch (e) {
+      toast('백업 파일을 만들지 못했어요');
+      return;
+    }
+    try {
+      downloadText(backupFileName(now), text);
+    } catch (e2) {
+      toast('백업 파일을 저장하지 못했어요');
+      return;
+    }
+    toast(backupSavedText(payload.counts));
+  }
+
+  function openBackupFile() {
+    var inp = $('backupInput');
+    if (inp) inp.click();
+  }
+
+  /* 고른 파일을 읽어 구조를 검사한다. 잘못된 파일이면 데이터를 건드리지 않고 이유만 알린다. */
+  function onBackupFile(file) {
+    if (!file) return;
+    readTextSmart(file, function (text) {
+      var res = parseBackup(text);
+      if (!res.ok) {
+        toast('백업 파일을 불러오지 못했어요 · ' + res.error);
+        return;
+      }
+      state.backupPending = res;
+      $('backupNote').innerHTML = '이 백업 파일로 지금 화면을 바꿔요.<br><b>' + esc(backupSummaryText(res)) + '</b>' +
+        (res.dropped ? '<br><span class="muted">읽을 수 없는 줄 ' + formatNumber(res.dropped) + '건은 빼고 불러와요.</span>' : '') +
+        '<br><span class="muted">불러온 뒤에는 [저장]을 눌러야 이 브라우저에 남아요. 잘못 불러왔으면 [↩ 실행취소]로 되돌릴 수 있어요.</span>';
+      $('backupModal').hidden = false;
+    });
+  }
+
+  function closeBackupAsk() {
+    $('backupModal').hidden = true;
+    state.backupPending = null;
+  }
+
+  /* 확인 창에서 [불러오기] — 직전 상태를 undo 스택에 쌓고 복원 데이터를 메모리에 넣는다.
+     저장은 하지 않는다(상단 '저장 안 됨' → 사용자가 확인 후 [저장]). */
+  function applyBackup() {
+    var res = state.backupPending;
+    if (!res) return;
+    $('backupModal').hidden = true;
+    state.backupPending = null;
+
+    var snap = pushUndo();
+    var items = [], deps = [], seen = {}, i, it, d;
+    for (i = 0; i < res.data.items.length; i++) {
+      it = normalizeItem(res.data.items[i]);
+      if (!it) continue;
+      if (seen[it.id]) it.id = uid();   /* 같은 id 가 두 번 오면 뒤엣것을 새 id 로 */
+      seen[it.id] = 1;
+      items.push(it);
+    }
+    for (i = 0; i < res.data.deposits.length; i++) {
+      d = normalizeDeposit(res.data.deposits[i]);
+      if (!d) continue;
+      if (!d.id || seen[d.id]) d.id = uid();
+      seen[d.id] = 1;
+      deps.push(d);
+    }
+    state.items = items;
+    state.deposits = deps;
+    /* 백업에 약어가 없으면 지금 약어를 그대로 둔다 */
+    if (res.data.aliases.length) state.aliases = upgradeAliases(res.data.aliases, ALIAS_VERSION).list;
+    state.selected = {};
+    state.collapsed = {};
+    state.expanded = {};
+    state.depOpen = false;
+    renderAliasList();
+    renderAll();
+    updateUndoBtn();
+    settleUndo(snap);
+    toast(backupLoadedText({ items: items.length, deposits: deps.length }));
+  }
+
   /* ---------------- 엑셀(.xlsx) 내보내기 ---------------- */
   /* SheetJS를 늦게라도 불러오기 시도하고, 그래도 안 되면 CSV를 권한다 */
   function ensureXlsx(cb) {
@@ -5418,7 +5693,7 @@ function toTopShouldShow(y, threshold) {
       markChanged();
       renderStats();
       renderBars();
-      renderMonthOptions();
+      renderMonthPicker();
       if (field === 'date' || field === 'month' || field === 'cat') renderList();
       if (field === 'desc' || field === 'card') renderCardDatalist();
       settleUndo(snap);
@@ -5491,6 +5766,17 @@ function toTopShouldShow(y, threshold) {
     /* 데이터 */
     $('csvBtn').addEventListener('click', exportCsv);
     $('xlsxBtn').addEventListener('click', exportXlsx);
+    /* v14: 백업 저장 · 백업 불러오기 */
+    $('backupSaveBtn').addEventListener('click', exportBackup);
+    $('backupLoadBtn').addEventListener('click', openBackupFile);
+    $('backupInput').addEventListener('change', function () {
+      var f = this.files && this.files[0];
+      this.value = '';
+      if (f) onBackupFile(f);
+    });
+    $('backupOk').addEventListener('click', applyBackup);
+    $('backupCancel').addEventListener('click', closeBackupAsk);
+    $('backupModal').addEventListener('click', function (e) { if (e.target === this) closeBackupAsk(); });
     /* 전체 초기화 — 저장 안 한 변경이 있으면 먼저 묻고(예/아니오) 진행한다 */
     $('resetBtn').addEventListener('click', function () {
       if (!state.items.length && !state.deposits.length) { toast('지울 내역이 없어요'); return; }
@@ -5603,6 +5889,7 @@ function toTopShouldShow(y, threshold) {
     $('exitModal').hidden = true;
     $('exitScreen').hidden = true;
     $('toTopBtn').hidden = true;
+    $('backupModal').hidden = true;
     $('monthPop').hidden = true;
     $('previewCard').hidden = true;
     $('inputCard').hidden = true;
