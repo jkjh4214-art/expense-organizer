@@ -62,6 +62,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .topbar { display: flex; align-items: center; gap: 8px; padding: 2px 2px 10px; }
 .topbar h1 { font-size: 16px; }
 .savestate { margin-left: auto; font-size: 11px; color: #9ca3af; white-space: nowrap; }
+.savestate.is-dirty { color: #b45309; font-weight: 600; }
 /* 오른쪽 위 [↩ 실행취소] · [저장] — 좌표 없이 한 줄에 붙는다 */
 .topacts { display: flex; flex: 0 0 auto; gap: 6px; }
 .topacts .btn { white-space: nowrap; }
@@ -183,6 +184,38 @@ textarea:focus, input:focus, select:focus {
 
 .filters { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)); gap: 6px; }
 .filters select, .filters input { font-size: 12.5px; padding: 6px 8px; }
+
+/* v12: 월 여러 개 고르기 (단추 + 체크 목록) */
+.month-wrap { position: relative; min-width: 0; }
+.pillbtn {
+  width: 100%; text-align: left; border: 1px solid #d5dbe4; border-radius: 7px;
+  background: #fff; padding: 6px 8px; font-size: 12.5px; color: #111827;
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pillbtn.is-on { border-color: #aabdea; background: #eef4ff; color: #1e40af; font-weight: 600; }
+.month-pop {
+  position: absolute; z-index: 40; left: 0; top: calc(100% + 4px); width: 190px;
+  background: #fff; border: 1px solid #d7dbe0; border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .16); padding: 8px; max-height: 46vh; overflow-y: auto;
+}
+.mo-all { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding-bottom: 5px; border-bottom: 1px solid #eef1f6; margin-bottom: 4px; font-weight: 600; }
+.mo-year { font-size: 10.5px; color: #9aa3af; padding: 5px 2px 1px; }
+.mo-year-months { display: flex; flex-direction: column; }
+.mo-row { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 2px; color: #374151; cursor: pointer; }
+.mo-row input { width: 15px; height: 15px; accent-color: var(--accent); margin: 0; }
+.mo-cnt { font-style: normal; margin-left: auto; font-size: 10.5px; color: #9aa3af; font-variant-numeric: tabular-nums; }
+.mo-foot { display: flex; align-items: center; gap: 6px; justify-content: space-between; border-top: 1px solid #eef1f6; margin-top: 5px; padding-top: 5px; }
+.mo-foot .muted { font-size: 10.5px; }
+
+/* v12: 의심 금액 확인 창 */
+.modal-card.modal-wide { max-width: 460px; }
+.amount-list { display: flex; flex-direction: column; gap: 5px; max-height: 46vh; overflow-y: auto; margin-top: 6px; }
+.amt-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) 84px; gap: 6px; align-items: center; border: 1px solid #e6ecf4; border-radius: 7px; padding: 5px 6px; background: #fbfcfe; }
+.amt-row.is-off { opacity: .55; }
+.amt-chk input { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
+.amt-line { font-size: 11.5px; color: #111827; word-break: break-all; }
+.amt-why { font-size: 10.5px; color: #b45309; margin-top: 1px; }
+.amt-row .a-amount { font-size: 11.5px; padding: 4px 5px; text-align: right; }
 .desc-tools { margin-top: 6px; background: #f8fafc; border: 1px solid var(--line-soft); border-radius: 7px; padding: 7px; }
 .desc-result { font-size: 12px; color: #3d4451; margin-top: 5px; }
 .desc-result b { font-variant-numeric: tabular-nums; }
@@ -326,7 +359,6 @@ table.sheet.pv td.c-cat select:focus {
 
 /* 카드별/내역별 요약 표 */
 table.sheet-grp { table-layout: auto; }
-.sheet-grp thead th.g-copy { width: 54px; }
 .sheet-grp > tbody > tr > td { padding: 6px 6px; height: 34px; }
 .sheet-grp td.g-name { font-weight: 600; cursor: pointer; }
 .sheet-grp td.g-name .caret { color: #9aa3af; font-size: 10px; margin-right: 4px; }
@@ -465,6 +497,8 @@ details.card > summary + * { margin-top: 8px; }
   .filters { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
   .filters > input[type="search"] { grid-column: 1 / -1; }
   .filters select, .filters input { font-size: 11.5px; padding: 5px 5px; }
+  .filters .pillbtn { font-size: 11.5px; padding: 5px 5px; }
+  .month-pop { width: 176px; }
   .filters > input[type="search"] { grid-column: 1 / -1; }
 }
 @media (max-width: 620px) {
@@ -525,7 +559,7 @@ details.card > summary + * { margin-top: 8px; }
 
   <header class="topbar">
     <h1>지출 정리</h1>
-    <span class="savestate" id="saveState">자동 저장</span>
+    <span class="savestate" id="saveState">저장됨</span>
     <span class="topacts">
       <button type="button" class="btn small ghost" id="undoBtn" disabled title="되돌릴 이력이 없어요" aria-label="실행취소">↩ 실행취소</button>
       <button type="button" class="btn small" id="saveBtn" title="지금 바로 저장">저장</button>
@@ -533,7 +567,7 @@ details.card > summary + * { margin-top: 8px; }
   </header>
 
   <div class="storage-warn" id="storageWarn" hidden>
-    이 브라우저에서는 자동 저장을 쓸 수 없어요. 새로고침하면 내역이 사라지니 <b>CSV로 백업</b>해 두세요.
+    이 브라우저에서는 저장을 쓸 수 없어요. 새로고침하면 내역이 사라지니 <b>CSV로 백업</b>해 두세요.
   </div>
 
   <div class="tools">
@@ -564,13 +598,13 @@ details.card > summary + * { margin-top: 8px; }
 
     <div id="panel-paste" class="tabpanel">
       <label class="sr-only" for="pasteInput">지출 내역 텍스트</label>
-      <textarea id="pasteInput" rows="5" spellcheck="false" placeholder="2026.11월 생활비&#10;&#10;우카새뜸초 24,000&#10;현카페스츄리 23,300&#10;11/27 점심 김치찌개 9000원"></textarea>
+      <textarea id="pasteInput" rows="5" spellcheck="false" placeholder="2026.11월&#10;&#10;우카새뜸초 24,000&#10;현카페스츄리 23,300&#10;11/27 점심 김치찌개 9000원"></textarea>
       <div class="btnrow">
         <button type="button" class="btn primary" id="parseBtn">내역 인식하기</button>
         <button type="button" class="btn ghost small" id="sampleBtn">예시</button>
         <button type="button" class="btn ghost small" id="clearPasteBtn">지우기</button>
       </div>
-      <p class="hint">한 줄에 하나씩. <b>2026.11월 생활비</b> 아래 내역은 그 달로, <b>우카·현카·롯카·농카</b> 같은 약어는 카드로 나눠 읽어요. <b>여민전</b>은 <b>여민전</b>, <b>온누리개인용돈</b>은 <b>온누리개인용돈</b>으로 들어가요.</p>
+      <p class="hint">한 줄에 하나씩. <b>2026.11월</b> 아래 내역은 그 달로 묶어요(<b>생활비</b>처럼 뒤에 붙은 말은 태그로 붙이지 않아요). <b>우카·현카·롯카·농카</b> 같은 약어는 카드로 나눠 읽어요. <b>여민전</b>은 <b>여민전</b>, <b>온누리개인용돈</b>은 <b>온누리개인용돈</b>으로 들어가요.</p>
     </div>
 
     <div id="panel-file" class="tabpanel" hidden>
@@ -635,13 +669,22 @@ details.card > summary + * { margin-top: 8px; }
         <button type="button" class="linkbtn" id="selAll">전체선택</button>
         <button type="button" class="linkbtn" id="selFiltered">필터만</button>
         <button type="button" class="linkbtn" id="selClear">해제</button>
-        <button type="button" class="g-chip" id="copySummaryBtn" hidden>카드 요약 복사</button>
       </div>
     </div>
 
     <div class="filters">
       <input type="search" id="filterQ" placeholder="내역·카드 검색" aria-label="내역·카드 검색" autocomplete="off">
-      <select id="filterMonth" aria-label="월"></select>
+      <div class="month-wrap">
+        <button type="button" class="pillbtn" id="monthBtn" aria-haspopup="true" aria-expanded="false" aria-controls="monthPop" title="여러 달을 함께 고를 수 있어요">전체 월 ▾</button>
+        <div class="month-pop" id="monthPop" hidden>
+          <label class="check mo-all"><input type="checkbox" id="moAll" checked> 전체 월</label>
+          <div class="mo-list" id="monthList"></div>
+          <div class="mo-foot">
+            <span class="muted" id="moHint">여러 달을 함께 고를 수 있어요</span>
+            <button type="button" class="linkbtn" id="monthClose">닫기</button>
+          </div>
+        </div>
+      </div>
       <select id="filterCat" aria-label="카테고리"></select>
       <select id="filterSettle" aria-label="정산 상태">
         <option value="all">정산 전체</option>
@@ -694,7 +737,7 @@ details.card > summary + * { margin-top: 8px; }
   <details class="card more help">
     <summary>이렇게 읽어요</summary>
     <ul>
-      <li><b>월 머리글</b> — <code>2026.11월 생활비</code>, <code>2026-11</code>, <code>11월</code> 줄 아래 내역은 그 달로 묶고, 뒤에 붙은 말은 태그로 붙여요.</li>
+      <li><b>월 머리글</b> — <code>2026.11월</code>, <code>2026-11</code>, <code>11월</code> 줄 아래 내역은 그 달로 묶어요. 뒤에 붙은 <code>생활비</code> 같은 말은 태그로 붙이지 않아요.</li>
       <li><b>카드 약어</b> — <code>우카</code>·<code>현카</code>·<code>롯카</code>·<code>농카</code> 등을 카드 이름으로 바꾸고 내역명만 남겨요. 엑셀에서 쓰던 <code>국체카</code>·<code>공카</code>·<code>복카</code>·<code>정카</code>·<code>우리은행현금</code>·<code>토스우리은행</code>·<code>우리은행</code>도 같이 읽어요. <code>여민전</code>(<code>여민전카드</code>)은 카드가 <b>여민전</b>으로, <code>온누리개인용돈</code>으로 시작하는 줄은 카드가 <b>온누리개인용돈</b>으로 들어가요(예: <code>온누리개인용돈마트 22,000</code> → 카드 온누리개인용돈 / 내역 마트).</li>
       <li><b>대여·상환 장 엑셀</b> — <code>22.07</code>·<code>26.05</code>처럼 달 이름이 붙은 시트가 여러 개인 파일은 시트마다 <b>항목</b>·<b>금액</b> 두 열로 그 달 항목을 넣어요. 빈 시트와 소계·합계만 있는 줄은 건너뛰고, 달마다 시트에 적힌 합계와 맞는지 미리보기에 보여줘요.</li>
       <li><b>시트에 적힌 이체·완료</b> — 소계 옆의 <code>26.07.21 일부 이체</code>·<code>26.09.22 이체완료</code>·<code>26.10.21 잔액 이체</code>에서 금액과 날짜를 읽어 그 달 <b>이체(입금) 누적</b>에 넣고, 소계 수식(<code>=SUM(D3:D24)</code>)이 가리키는 행만 <b>정산</b>으로 표시해요. 머리글에 <b>전체완료</b>(<b>완료</b>)와 날짜가 있으면 그 달 전부를 정산으로 하고, 남은 금액은 완료 날짜의 이체로 채워 잔액을 0으로 맞춰요. <code>일부취소</code>·<code>취소</code> 메모는 이체로 보지 않아요.</li>
@@ -702,10 +745,12 @@ details.card > summary + * { margin-top: 8px; }
       <li><b>달 접기</b> — 달 머리글을 누르면 그 달 내역이 접히거나 펼쳐져요. 4년치처럼 많으면 달을 눌러 하나씩 보세요.</li>
       <li><b>날짜</b> — 날짜가 없으면 오늘, 월 머리글 아래면 그 달로 넣어요.</li>
       <li><b>금액</b> — <code>4,500</code> · <code>9000원</code> · <code>₩28,700</code>을 읽고, 전화번호·카드번호·시간은 금액으로 보지 않아요.</li>
+      <li><b>금액 확인</b> — 금액이 0원이거나 너무 크거나(1,000만원 이상) 너무 작거나(100원 미만), 금액을 못 찾은 줄, 한 줄에 숫자가 여럿이거나 수량·단위(만원·달러)가 섞인 줄은 그냥 넣지 않고 <b>확인 창</b>을 띄워요. 그 창에서 금액을 고치거나 그 줄을 빼고 반영할 수 있어요.</li>
       <li><b>정산 표시</b> — 표에서 행을 체크하면 아래 합계가 바로 계산되고, <b>정산</b> 칸을 누르면 완료로 바뀌어요.</li>
       <li><b>카드순</b> — 정렬에서 <b>카드순</b>을 고르거나 표의 <b>카드</b> 글자를 누르면 같은 카드끼리 모여요.</li>
       <li><b>고치기·삭제</b> — 날짜 칸을 누르면 날짜·카드·구분·정산을 고칠 수 있고, 지울 때는 행을 체크한 뒤 아래 막대의 <b>삭제</b>를 눌러요.</li>
-      <li><b>실행취소·저장</b> — 오른쪽 위 <b>↩ 실행취소</b>를 누르면 바로 앞 상태(항목·이체 기록·카드 약어)로 돌아가요. 지우기·등록·고치기·정산·초기화까지 30단계까지 되돌릴 수 있어요(앱을 닫으면 이력은 사라져요). <b>저장</b>은 자동 저장과 별개로 지금 상태를 바로 저장하고 시각을 보여줘요.</li>
+      <li><b>월 고르기</b> — <b>전체 월</b> 단추를 눌러 <b>전체</b>를 풀고 여러 달을 한꺼번에 체크할 수 있어요. 고른 달끼리 합계·엑셀 다운도 함께 계산돼요.</li>
+      <li><b>실행취소·저장</b> — 오른쪽 위 <b>↩ 실행취소</b>를 누르면 바로 앞 상태(항목·이체 기록·카드 약어)로 돌아가요. 지우기·등록·고치기·정산·초기화까지 30단계까지 되돌릴 수 있어요(앱을 닫으면 이력은 사라져요). 바꾼 내용은 <b>[저장]</b>을 눌렀을 때만 저장돼요. 저장하기 전에 창을 닫거나 새로고침하면 한 번 더 물어봐요.</li>
       <li><b>엑셀 다운</b> — 지금 화면에 보이는 목록(필터·정렬 그대로)을 <code>.xlsx</code>로 내려받아요. <b>지출내역</b>·<b>월별정산요약</b>·<b>입금이체내역</b> 세 장으로 저장되고 합계·잔액은 <code>=SUM</code>·<code>=SUMIF</code> 수식으로 들어가요. 인터넷이 없어 엑셀 도구를 못 불러오면 CSV로 대신 받을 수 있어요.</li>
     </ul>
   </details>
@@ -721,7 +766,6 @@ details.card > summary + * { margin-top: 8px; }
   <div class="selbar-actions">
     <button type="button" class="btn small white" id="btnSettle">정산 완료</button>
     <button type="button" class="btn small white" id="btnUnsettle">되돌리기</button>
-    <button type="button" class="btn small white" id="btnCopySel">복사</button>
     <button type="button" class="btn small white" id="btnDelete">삭제</button>
     <button type="button" class="selbar-close" id="btnSelClose" aria-label="선택 닫기">✕</button>
   </div>
@@ -837,13 +881,26 @@ details.card > summary + * { margin-top: 8px; }
   </div>
 </div>
 
-<div class="modal" id="copyModal" hidden>
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="copyTitle">
-    <h3 id="copyTitle">복사할 내용</h3>
-    <p class="hint">아래 내용을 길게 눌러 직접 복사해 주세요.</p>
-    <textarea id="copyText" rows="8" readonly></textarea>
+<div class="modal" id="amountModal" hidden>
+  <div class="modal-card modal-wide" role="dialog" aria-modal="true" aria-labelledby="amountTitle">
+    <h3 id="amountTitle">금액을 확인해 주세요</h3>
+    <p class="hint" id="amountNote">금액이 의심스러운 줄이에요. 금액을 고치거나, 넣지 않으려면 체크를 풀어 주세요.</p>
+    <div class="amount-list" id="amountList"></div>
     <div class="modal-actions">
-      <button type="button" class="btn primary" id="copyClose">닫기</button>
+      <span class="grow"></span>
+      <button type="button" class="btn ghost" id="amountCancel">취소</button>
+      <button type="button" class="btn primary" id="amountOk">확인하고 반영</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="dirtyModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="dirtyTitle">
+    <h3 id="dirtyTitle">저장하지 않은 변경</h3>
+    <p class="hint" id="dirtyNote">데이터가 변경된 사항이 있습니다. 저장하시겠습니까?</p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" id="dirtyNo">아니오</button>
+      <button type="button" class="btn primary" id="dirtyYes">예</button>
     </div>
   </div>
 </div>
@@ -1122,7 +1179,8 @@ function stripForDesc(line, amt) {
 
 function isTrivialDesc(desc) {
   var d = String(desc === null || desc === undefined ? '' : desc).replace(/\s+/g, '').toLowerCase();
-  if (d.length <= 1) return true;
+  /* v12: 한 글자 내역(롯카쌀 → '쌀')은 버리지 않는다. 비어 있을 때만 '내역 없음' */
+  if (d.length === 0) return true;
   if (TRIVIAL_WORDS[d]) return true;
   if (/^(신한|삼성|현대|국민|kb|롯데|하나|우리|bc|농협|nh|카카오뱅크|토스뱅크|기업|ibk|케이뱅크|광주|전북|제주|수협|신협|우체국|씨티|sc제일)(카드|은행|뱅크)?$/.test(d)) return true;
   return false;
@@ -1232,27 +1290,21 @@ function splitCard(desc, aliases) {
 }
 
 /* ---------- 월/날짜 머리글 ---------- */
-function cleanTag(t) {
-  var s = String(t === null || t === undefined ? '' : t);
-  s = s.replace(/^[\s\-–—:·|,]+/, '').replace(/[\s\-–—:·|,]+$/, '');
-  s = s.replace(/\s+/g, ' ');
-  return s.slice(0, 24);
-}
-
+/* v12: 월 머리글은 달만 읽는다. '2026.11월 생활비'의 '생활비'는 태그로 붙이지 않는다. */
 function monthHeaderInfo(line, today) {
   var s = cleanLine(line);
   var t = today || todayIso();
   var m = s.match(/^(\d{4})\s*[.\-\/년]\s*(\d{1,2})\s*월?(?:\s+|$)(.*)$/);
-  var y, mo, tag;
+  var y, mo;
   if (m) {
-    y = +m[1]; mo = +m[2]; tag = m[3] || '';
+    y = +m[1]; mo = +m[2];
   } else {
     m = s.match(/^(\d{1,2})\s*월(?:\s+|$)(.*)$/);
     if (!m) return null;
-    y = parseInt(t.slice(0, 4), 10); mo = +m[1]; tag = m[2] || '';
+    y = parseInt(t.slice(0, 4), 10); mo = +m[1];
   }
   if (!(mo >= 1 && mo <= 12)) return null;
-  return { month: String(y) + '-' + pad2(mo), tag: cleanTag(tag) };
+  return { month: String(y) + '-' + pad2(mo), tag: '' };
 }
 
 function dateHeaderInfo(line, today) {
@@ -1326,7 +1378,7 @@ function parseExpenseText(text, opts) {
   var aliases = opts.aliases || DEFAULT_CARD_ALIASES;
   var rawLines = String(text === null || text === undefined ? '' : text).replace(/\r\n?/g, '\n').split('\n');
   var items = [];
-  var ctx = { month: '', date: '', tag: '' };
+  var ctx = { month: '', date: '' };
   var i;
 
   for (i = 0; i < rawLines.length; i++) {
@@ -1341,16 +1393,15 @@ function parseExpenseText(text, opts) {
       var mh = monthHeaderInfo(line, today);
       if (mh) {
         ctx.month = mh.month;
-        ctx.tag = mh.tag;
         ctx.date = '';
-        items.push({ kind: 'header', text: line, month: mh.month, tag: mh.tag, date: '' });
+        items.push({ kind: 'header', text: line, month: mh.month, tag: '', date: '' });
         continue;
       }
       var dh = dateHeaderInfo(line, today);
       if (dh) {
         ctx.date = dh.date;
         ctx.month = dh.date.slice(0, 7);
-        items.push({ kind: 'header', text: line, month: ctx.month, tag: ctx.tag, date: dh.date });
+        items.push({ kind: 'header', text: line, month: ctx.month, tag: '', date: dh.date });
         continue;
       }
     }
@@ -1367,7 +1418,7 @@ function parseExpenseText(text, opts) {
       amount: why ? null : amt,
       date: date,
       month: month,
-      tag: ctx.tag,
+      tag: '',
       desc: split.desc,
       card: split.card,
       skip: why,
@@ -1418,7 +1469,8 @@ function parseExpenseText(text, opts) {
       amount: Math.abs(o.amount.value),
       category: guessCategory(o.card + ' ' + desc),
       card: o.card || '',
-      tag: o.tag || '',
+      tag: '',
+      line: o.text,
       dateGuessed: !o.date && !o.month
     });
   }
@@ -1536,44 +1588,266 @@ function detectHeaderRow(aoa, maxScan) {
   return best;
 }
 
-function rowsFromAOA(aoa, map, headerIndex, today) {
+/* 엑셀 한 줄 → 항목. 금액을 못 읽으면 null.
+   금액을 사용자가 확인해 넣어 줄 때는 amount 를 넘긴다(v12 의심 금액 확인). */
+function sheetRowOf(aoa, map, r, amount, today) {
   var t = today || todayIso();
-  var out = [], r;
-  var start = headerIndex >= 0 ? headerIndex + 1 : 0;
   var m = map || { date: -1, desc: -1, amount: -1, category: -1, deposit: -1 };
-  for (r = start; r < aoa.length; r++) {
-    var row = aoa[r] || [];
+  var row = (aoa || [])[r] || [];
+  var amt;
+  if (amount === undefined || amount === null || amount === '') amt = parseAmount(m.amount >= 0 ? row[m.amount] : '');
+  else amt = Number(amount);
+  if (amt === null || !isFinite(amt) || amt === 0) return null;
+  var desc = m.desc >= 0 ? cellText(row[m.desc]) : '';
+  var date = m.date >= 0 ? parseCellDate(row[m.date], t) : null;
+  var catRaw = m.category >= 0 ? cellText(row[m.category]) : '';
+  if (/^(합계|총계|소계|계|total)$/i.test(desc)) return null;
+  if (!desc && !date) return null;
+  if (!desc) desc = '내역 없음';
+  var split = splitCard(desc, undefined);
+  var name = split.desc || desc;
+  return {
+    date: date || t,
+    month: (date || t).slice(0, 7),
+    desc: name,
+    amount: Math.abs(amt),
+    category: normCategory(catRaw) || guessCategory(name),
+    card: split.card,
+    tag: '',
+    dateGuessed: !date
+  };
+}
+
+function rowsFromAOA(aoa, map, headerIndex, today) {
+  return parseSheetRows(aoa, map, headerIndex, today).rows;
+}
+
+/* 한 장짜리 엑셀을 읽으며 의심스러운 줄도 함께 모은다 (v12).
+   rows    항목
+   issues  {kind:'row'(rows 의 index) | 'dropped'(at: 엑셀 행), line, desc, amount, code, why} */
+function parseSheetRows(aoa, map, headerIndex, today) {
+  var t = today || todayIso();
+  var m = map || { date: -1, desc: -1, amount: -1, category: -1, deposit: -1 };
+  var start = (headerIndex === undefined || headerIndex === null || headerIndex < 0) ? 0 : headerIndex + 1;
+  var out = { rows: [], issues: [] };
+  var r, row, rawAmt, amt, desc, date, text, iss, dep, made;
+  for (r = start; r < (aoa || []).length; r++) {
+    row = aoa[r] || [];
     if (!row.length) continue;
-    var rawAmt = m.amount >= 0 ? row[m.amount] : '';
-    var amt = parseAmount(rawAmt);
+    rawAmt = m.amount >= 0 ? row[m.amount] : '';
+    amt = parseAmount(rawAmt);
+    desc = m.desc >= 0 ? cellText(row[m.desc]) : '';
+    date = m.date >= 0 ? parseCellDate(row[m.date], t) : null;
+    if (/^(합계|총계|소계|계|total)$/i.test(desc)) continue;
     if (m.deposit >= 0) {
-      var dep = parseAmount(row[m.deposit]);
-      if (amt === null || amt === 0) { if (dep) continue; }
+      dep = parseAmount(row[m.deposit]);
+      if (dep && (amt === null || amt === 0)) continue;   /* 입금만 있는 줄은 일부러 뺀다 */
       if (dep && amt === null) continue;
     }
-    if (amt === null || amt === 0) continue;
-
-    var desc = m.desc >= 0 ? String(row[m.desc] === null || row[m.desc] === undefined ? '' : row[m.desc]).replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '') : '';
-    var date = m.date >= 0 ? parseCellDate(row[m.date], t) : null;
-    var catRaw = m.category >= 0 ? String(row[m.category] === null || row[m.category] === undefined ? '' : row[m.category]) : '';
-    if (/^(합계|총계|소계|계|total)$/i.test(desc)) continue;
-    if (!desc && !date) continue;
-    if (!desc) desc = '내역 없음';
-
-    var split = splitCard(desc, undefined);
-    var name = split.desc || desc;
-    out.push({
-      date: date || t,
-      month: (date || t).slice(0, 7),
-      desc: name,
-      amount: Math.abs(amt),
-      category: normCategory(catRaw) || guessCategory(name),
-      card: split.card,
-      tag: '',
-      dateGuessed: !date
-    });
+    if (amt === null || amt === 0) {
+      if (!desc && !date) continue;
+      text = sheetRowText(row, m);
+      iss = amountIssueOf(text, amt, { multi: false, unitText: String(rawAmt) });
+      out.issues.push({
+        kind: 'dropped', at: r, line: text, desc: desc,
+        amount: (amt === 0 ? 0 : null),
+        code: iss ? iss.code : 'missing',
+        why: (String(rawAmt).replace(/\s/g, '') === '' && (!iss || iss.code === 'missing'))
+          ? '금액 칸이 비어 있어요'
+          : (iss ? iss.why : '금액을 숫자로 읽지 못했어요')
+      });
+      continue;
+    }
+    made = sheetRowOf(aoa, m, r, null, t);
+    if (!made) continue;
+    out.rows.push(made);
+    text = sheetRowText(row, m);
+    iss = amountIssueOf(text, made.amount, { multi: false, unitText: String(rawAmt) });
+    if (iss) {
+      out.issues.push({
+        kind: 'row', index: out.rows.length - 1, at: r, line: text,
+        desc: made.desc, amount: made.amount, code: iss.code, why: iss.why
+      });
+    }
   }
   return out;
+}
+
+/* 엑셀 한 줄을 사람이 읽을 한 줄로 (의심 금액 안내에 쓴다) */
+function sheetRowText(row, map) {
+  var out = [], i, v;
+  for (i = 0; i < (row || []).length; i++) {
+    v = row[i];
+    if (v === null || v === undefined || v === '') continue;
+    if (v instanceof Date) { out.push(isoOf(v)); continue; }
+    out.push(cellText(v));
+  }
+  return out.join(' · ');
+}
+
+/* =====================================================================
+   v12 · 의심 금액 점검 — 붙여넣기·엑셀에서 조용히 넘기거나 등록하지 않는다
+   ===================================================================== */
+var AMOUNT_BIG = 10000000;   /* 1,000만원 이상이면 확인 */
+var AMOUNT_SMALL = 100;      /* 100원 미만이면 확인 */
+
+/* 금액 후보를 셀 때 쓰는 가리기 — maskNoise 는 '11월 150,000'의 '11월 15'까지 지워
+   금액을 못 보게 하므로, 여기서는 확실한 날짜·시간·전화번호만 가린다. */
+function maskAmountNoise(text) {
+  var t = String(text === null || text === undefined ? '' : text);
+  t = t.replace(/\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일?/g, ' ');
+  t = t.replace(/\d{4}\s*[.\-\/]\s*\d{1,2}\s*[.\-\/]\s*\d{1,2}/g, ' ');
+  t = t.replace(/\d{1,2}\s*월\s*\d{1,2}\s*일/g, ' ');
+  t = t.replace(/\d{2,4}\s*-\s*\d{3,4}\s*-\s*\d{4}/g, ' ');
+  t = t.replace(/\d{4}\s*[-*]\s*[*\d]{4}\s*[-*]\s*[*\d]{4}/g, ' ');
+  t = t.replace(/\d{1,2}\s*:\s*\d{2}(?:\s*:\s*\d{2})?/g, ' ');
+  t = t.replace(/(^|[^\d])\d{1,2}\s*[.\-\/]\s*\d{1,2}(?!\d)/g, '$1 ');
+  return t;
+}
+
+/* 금액으로 읽힐 수 있는 숫자 후보. 날짜·시간·전화번호는 가려서 뺀다. */
+function amountCandidates(line) {
+  var s = maskAmountNoise(cleanLine(line));
+  var re = /(-?)\s*(?:₩|￦|krw)?\s*(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(원|₩|￦|krw)?/gi;
+  var m, out = [], raw, v, next;
+  while ((m = re.exec(s)) !== null) {
+    raw = String(m[2]);
+    v = parseFloat(raw.replace(/,/g, ''));
+    if (!isFinite(v) || v === 0) continue;
+    next = s.charAt(m.index + m[0].length);
+    /* 2026.11 · 2026년 같은 연도·날짜 조각은 금액 후보가 아니다 */
+    if (/^(19|20)\d{2}$/.test(raw) && (next === '.' || next === '-' || next === '/' || next === '년' || next === '월')) continue;
+    if (/^(19|20)\d{2}\.\d{1,2}$/.test(raw)) continue;
+    if (/^\d{1,2}\.\d{1,2}$/.test(raw) && !m[3] && raw.indexOf(',') < 0) continue;
+    if (!m[3] && raw.indexOf(',') < 0 && Math.abs(v) < 100) continue;
+    out.push({ value: m[1] === '-' ? -v : v, text: m[0].replace(/\s+/g, ' '), marked: !!m[3] });
+  }
+  return out;
+}
+
+/* 줄에 섞인 수량 표기 (2인분·1개·3명 …) */
+function quantityMentions(line) {
+  var s = cleanLine(line), out = [], m;
+  var re = /(\d{1,3})\s*(인분|명분|개|명|건|매|병|잔|봉|팩|박스|포기|근|kg|g|ml|l)(?![가-힣])/gi;
+  while ((m = re.exec(s)) !== null) out.push(m[0].replace(/\s+/g, ''));
+  return out;
+}
+
+/* 단위 표기는 숫자에 붙어 있거나(50만원) 통화 표시로 따로 서 있을 때만 센다.
+   '비엔나소시지'의 '엔', '3천원제외' 같은 설명 글은 단위로 보지 않는다. */
+function unitWordsIn(line) {
+  var s = String(line === null || line === undefined ? '' : line);
+  var out = [], m;
+  var re = /(\d[\d,.]*)\s*(만원|천원|억원|억|달러|엔|유로|위안|usd|eur)/gi;
+  while ((m = re.exec(s)) !== null) out.push(m[2]);
+  m = s.match(/(^|[\s(])(달러|usd|유로|eur|위안|엔|yen)(?=[\s),.]|$)/i);
+  if (m) out.push(m[2]);
+  if (s.indexOf('$') >= 0) out.push('$');
+  return out;
+}
+
+/*
+  한 줄의 금액이 의심스러운지 본다. null 이면 괜찮다.
+    missing : 금액을 찾지 못함
+    unit    : 만원·달러처럼 단위를 읽지 못했거나 섞임
+    zero    : 0원
+    big     : AMOUNT_BIG 이상
+    small   : AMOUNT_SMALL 미만
+    multi   : 금액 후보가 여럿이거나 수량 숫자와 섞임
+*/
+function amountIssueOf(line, amount, opts) {
+  opts = opts || {};
+  var text = cleanLine(line);
+  /* 단위는 금액이 적힌 칸(또는 줄)에서만 본다 — 엑셀의 다른 칸 설명 글은 단위가 아니다 */
+  var unitText = (opts.unitText === undefined) ? text : cleanLine(opts.unitText);
+  var units = unitWordsIn(unitText);
+  var amt = null;
+  if (!(amount === undefined || amount === null || amount === '')) {
+    var n = Number(amount);
+    if (isFinite(n)) amt = Math.abs(n);
+  }
+  if (amt === null) {
+    if (units.length) return { code: 'unit', why: '단위(' + units[0] + ')를 읽지 못했어요' };
+    return { code: 'missing', why: '금액을 찾지 못했어요' };
+  }
+  if (amt === 0) return { code: 'zero', why: '0원으로 읽혔어요' };
+  if (units.length) return { code: 'unit', why: '단위(' + units[0] + ')가 섞여 있어요' };
+  if (amt >= AMOUNT_BIG) return { code: 'big', why: '금액이 너무 커요 (' + formatNumber(AMOUNT_BIG) + '원 이상)' };
+  if (amt < AMOUNT_SMALL) return { code: 'small', why: '금액이 너무 작아요 (' + formatNumber(AMOUNT_SMALL) + '원 미만)' };
+  if (opts.multi === false) return null;
+  var cands = amountCandidates(text);
+  var qty = quantityMentions(text);
+  if (cands.length >= 2) return { code: 'multi', why: '한 줄에 금액이 ' + cands.length + '개 있어요' };
+  if (qty.length) return { code: 'multi', why: '수량(' + qty[0] + ')과 금액이 함께 있어요' };
+  return null;
+}
+
+/* 붙여넣기 결과에서 의심스러운 줄 모으기 */
+function scanPasteIssues(parsed, opts) {
+  var out = [], i, iss, row, sk;
+  var rows = (parsed && parsed.rows) || [];
+  for (i = 0; i < rows.length; i++) {
+    row = rows[i];
+    iss = amountIssueOf(row.line || '', row.amount, opts);
+    if (!iss) continue;
+    out.push({ kind: 'row', index: i, line: row.line || '', desc: row.desc || '', amount: row.amount, code: iss.code, why: iss.why });
+  }
+  sk = (parsed && parsed.skipped) || [];
+  for (i = 0; i < sk.length; i++) {
+    if (sk[i].why !== '금액을 찾지 못했어요') continue;
+    iss = amountIssueOf(sk[i].line, null, opts) || { code: 'missing', why: '금액을 찾지 못했어요' };
+    out.push({ kind: 'skip', index: i, line: sk[i].line || '', desc: '', amount: null, code: iss.code, why: iss.why });
+  }
+  return out;
+}
+
+/* 이미 항목으로 읽힌 줄들에서 금액이 의심스러운 것만 (원장 시트처럼 원문 줄이 없을 때).
+   수량·날짜 혼동은 열이 나뉘어 있어 보지 않는다. */
+function scanRowAmountIssues(rows, opts) {
+  var out = [], i, r, iss, line;
+  var list = rows || [];
+  for (i = 0; i < list.length; i++) {
+    r = list[i];
+    if (!r) continue;
+    line = r.line || ((r.card ? r.card + ' ' : '') + (r.desc || '') + ' ' + formatNumber(r.amount));
+    iss = amountIssueOf(line, r.amount, { multi: false, unitText: '' });
+    if (!iss) continue;
+    out.push({ kind: 'row', index: i, line: line, desc: r.desc || '', amount: r.amount || 0, code: iss.code, why: iss.why });
+  }
+  return out;
+}
+
+/* 붙여넣기 한 줄 → 항목 (금액을 사용자가 넣어 줄 때) */
+function rowFromLine(line, opts) {
+  opts = opts || {};
+  var today = opts.today || todayIso();
+  var amt = null, got;
+  if (!(opts.amount === undefined || opts.amount === null || opts.amount === '')) {
+    var n = Number(opts.amount);
+    if (isFinite(n) && n !== 0) amt = Math.abs(n);
+  }
+  if (amt === null) {
+    got = extractAmount(line);
+    if (got && got.value) amt = Math.abs(got.value);
+  }
+  if (amt === null) return null;
+  var sp = splitCard(stripForDesc(line, null), opts.aliases);
+  var date = extractDate(line, today) || '';
+  var month = date ? date.slice(0, 7) : (opts.month || '');
+  var guessed = !date && !month;
+  if (guessed) { date = today; month = today.slice(0, 7); }
+  var desc = isTrivialDesc(sp.desc) ? '내역 없음' : sp.desc;
+  return {
+    date: date,
+    month: month,
+    desc: desc,
+    amount: amt,
+    category: guessCategory(sp.card + ' ' + desc),
+    card: sp.card,
+    tag: '',
+    line: line,
+    dateGuessed: guessed
+  };
 }
 
 /* ---------- 엑셀(.xlsx) 내보내기용 시트 데이터 ---------- */
@@ -1721,70 +1995,7 @@ function cardGroups(items) {
   return out;
 }
 
-function monthLabelOf(items) {
-  var set = {}, i, keys = [];
-  for (i = 0; i < items.length; i++) {
-    var m = items[i].month || '';
-    if (m && !set[m]) { set[m] = 1; keys.push(m); }
-  }
-  if (keys.length === 1) return keys[0].replace('-', '.') + '월';
-  return '';
-}
-
-function shortDateOf(it) {
-  if (it.date) return it.date.slice(5, 7) + '.' + it.date.slice(8, 10);
-  if (it.month) return it.month.replace('-', '.');
-  return '';
-}
-
-function buildSelectionText(items, opts) {
-  opts = opts || {};
-  var list = [], i;
-  for (i = 0; i < items.length; i++) {
-    list.push({ it: items[i], i: i, k: (items[i].date || ((items[i].month || '') + '-00')) });
-  }
-  list.sort(function (a, b) {
-    if (a.k < b.k) return -1;
-    if (a.k > b.k) return 1;
-    return a.i - b.i;
-  });
-  var total = sumAmount(items);
-  var label = monthLabelOf(items);
-  var head = (label ? label + ' ' : '') + (opts.title || '선택 정산') +
-    ' (' + list.length + '건 · 총 ' + formatNumber(total) + '원)';
-  var lines = [head];
-  if (opts.settlement && opts.settlement.deposit) {
-    lines.push('이체 ' + formatNumber(opts.settlement.deposit) + '원 · 남은 잔액 ' +
-      formatNumber(opts.settlement.balance) + '원');
-  }
-  for (i = 0; i < list.length; i++) {
-    var it = list[i].it;
-    var bits = [];
-    if (shortDateOf(it)) bits.push(shortDateOf(it));
-    bits.push(it.desc || '내역 없음');
-    if (it.card) bits.push('(' + it.card + ')');
-    bits.push(formatNumber(it.amount) + '원');
-    if (it.settled) bits.push(it.settledAt ? '(정산 ' + depositDateLabel(it.settledAt) + ')' : '(정산)');
-    lines.push('· ' + bits.join(' '));
-  }
-  return lines.join('\n');
-}
-
-function buildCardSummaryText(items, opts) {
-  opts = opts || {};
-  var groups = groupBy(items, function (it) { return it.card || '카드 미지정'; });
-  var total = sumAmount(items);
-  var label = monthLabelOf(items);
-  var head = (label ? label + ' ' : '') + (opts.title || '카드별 요약') +
-    ' (' + items.length + '건 · 총 ' + formatNumber(total) + '원)';
-  var lines = [head];
-  for (var i = 0; i < groups.length; i++) {
-    var g = groups[i];
-    var pct = total ? Math.round(g.sum / total * 100) : 0;
-    lines.push('· ' + g.key + ' ' + g.count + '건 · ' + formatNumber(g.sum) + '원 (' + pct + '%)');
-  }
-  return lines.join('\n');
-}
+/* v12: 복사 기능을 없애면서 선택 정산·카드 요약 문구 만들기도 함께 걷어냈다. */
 /* =====================================================================
    v7 · 입금(이체) 기록과 남은 잔액
    ===================================================================== */
@@ -2485,7 +2696,7 @@ function buildWorkbookSpec(items, deposits, opts) {
     skipped: [],
     headers: [],
     aliases: [],
-    filters: { q: '', cat: 'all', month: 'all', settle: 'all', sort: 'date_desc' },
+    filters: { q: '', cat: 'all', allMonths: true, months: [], settle: 'all', sort: 'date_desc' },
     view: 'all',
     selected: {},
     expanded: {},
@@ -2501,11 +2712,18 @@ function buildWorkbookSpec(items, deposits, opts) {
     ledgerInfo: null,
     monthOn: {},
     syncSettled: true,
-    storageOk: true
+    storageOk: true,
+    dirty: false,
+    lastSavedAt: '',
+    amountPayload: null,
+    amountIssues: [],
+    pendingAction: null
   };
 
-  var saveTimer = null;
   var toastTimer = null;
+  /* v12: 자동 저장을 없앴다. 마지막으로 저장한(또는 열었을 때) 상태를 기억해 두고
+     지금 메모리 상태와 다르면 '저장 안 됨'(isDirty)으로 본다. */
+  var savedSnapshot = null;
 
   function $(id) { return document.getElementById(id); }
 
@@ -2570,22 +2788,22 @@ function buildWorkbookSpec(items, deposits, opts) {
     }
   }
 
-  function saveSoon() {
-    setSaveState('저장 중…');
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(persistNow, 300);
+  /* 데이터가 바뀌었을 때 — v12에는 자동 저장이 없으니 '저장 안 됨' 표시만 바꾼다 */
+  function markChanged() {
+    refreshDirty();
   }
 
   function persistNow() {
-    if (!state.storageOk) return;
+    if (!state.storageOk) return false;
     try {
       localStorage.setItem(ITEM_KEY, JSON.stringify({ v: 1, items: state.items }));
       localStorage.setItem(DEPOSIT_KEY, JSON.stringify({ v: 1, deposits: state.deposits }));
-      setSaveState('저장됨 ' + timeNow());
+      return true;
     } catch (e) {
       setSaveState('저장 실패');
       state.storageOk = false;
       $('storageWarn').hidden = false;
+      return false;
     }
   }
 
@@ -2610,6 +2828,30 @@ function buildWorkbookSpec(items, deposits, opts) {
   function timeNow() {
     var d = new Date();
     return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+
+  /* ---------------- 저장 상태(isDirty) ---------------- */
+  function dataText() {
+    return JSON.stringify({ items: state.items, deposits: state.deposits, aliases: state.aliases });
+  }
+
+  function isDirty() {
+    return savedSnapshot !== null && dataText() !== savedSnapshot;
+  }
+
+  function refreshDirty() {
+    var d = isDirty();
+    state.dirty = d;
+    var el = $('saveState');
+    if (!el) return;
+    el.textContent = d ? '저장 안 됨' : (state.lastSavedAt ? '저장됨 ' + state.lastSavedAt : '저장됨');
+    el.className = 'savestate' + (d ? ' is-dirty' : '');
+  }
+
+  /* 열었을 때 / 저장했을 때의 상태를 기억한다 */
+  function markClean() {
+    savedSnapshot = dataText();
+    refreshDirty();
   }
 
   /* ---------------- 실행취소(되돌리기) ---------------- */
@@ -2669,10 +2911,10 @@ function buildWorkbookSpec(items, deposits, opts) {
     for (id in state.selected) {
       if (!keep[id]) delete state.selected[id];
     }
-    persistAliases();
-    persistNow();
+    /* v12: 되돌린 결과도 [저장]을 눌렀을 때만 저장된다 */
     renderAliasList();
     renderAll();
+    refreshDirty();
     updateUndoBtn();
   }
 
@@ -2690,22 +2932,63 @@ function buildWorkbookSpec(items, deposits, opts) {
     toast('직전 상태로 되돌렸어요');
   }
 
-  /* ---------------- 저장 버튼 ---------------- */
-  /* 자동 저장(300ms)과 별개로 지금 상태를 바로 localStorage에 쓴다 */
-  function saveNow() {
-    clearTimeout(saveTimer);
-    persistAliases();
-    persistNow();
-    if (!state.storageOk) {
-      toast('저장하지 못했어요 · 이 브라우저에서는 저장소를 쓸 수 없어요');
-      return;
+  /* ---------------- 저장 안 함 확인 ---------------- */
+  /* 초기화처럼 데이터를 다루는 안쪽 동작에서 바꿔 둔 게 있으면
+     "데이터가 변경된 사항이 있습니다. 저장하시겠습니까?"를 띄운다. */
+  function askDirtyThen(fn) {
+    if (!isDirty()) { fn(); return; }
+    state.pendingAction = fn;
+    $('dirtyNote').textContent = '데이터가 변경된 사항이 있습니다. 저장하시겠습니까?';
+    $('dirtyModal').hidden = false;
+  }
+
+  function closeDirty() {
+    $('dirtyModal').hidden = true;
+    state.pendingAction = null;
+  }
+
+  /* save true → [예]: 저장하고 진행 · false → [아니오]: 저장 없이 진행 */
+  function resolveDirty(save) {
+    var fn = state.pendingAction;
+    $('dirtyModal').hidden = true;
+    state.pendingAction = null;
+    if (save) saveNow(true);
+    if (typeof fn === 'function') fn();
+  }
+
+  /* 브라우저 창 닫기·새로고침·뒤로가기 */
+  function onBeforeUnload(e) {
+    if (!isDirty()) return;
+    if (e) {
+      e.preventDefault();
+      e.returnValue = '';
     }
-    var t = timeNow();
-    setSaveState('저장됨 ' + t);
-    toast('저장했어요 (' + t + ')');
+    return '';
+  }
+
+  /* ---------------- 저장 버튼 ---------------- */
+  /* [저장]을 눌렀을 때만 localStorage에 쓴다 (v12: 자동 저장 없음) */
+  function saveNow(quiet) {
+    persistAliases();
+    var written = persistNow();
+    if (!written || !state.storageOk) {
+      toast('저장하지 못했어요 · 이 브라우저에서는 저장소를 쓸 수 없어요');
+      return false;
+    }
+    state.lastSavedAt = timeNow();
+    markClean();
+    if (!quiet) toast('저장했어요 (' + state.lastSavedAt + ')');
+    return true;
   }
 
   /* ---------------- 데이터 ---------------- */
+  /* v12: 예전에 월 머리글에서 자동으로 붙던 '생활비' 태그는 걷어낸다 */
+  function normalizeTagText(t) {
+    var s = String(t === null || t === undefined ? '' : t).replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+    if (s === '생활비' || s === '생활') return '';
+    return s;
+  }
+
   function normalizeItem(o) {
     if (!o) return null;
     var amount = typeof o.amount === 'number' ? o.amount : parseAmount(o.amount);
@@ -2721,7 +3004,7 @@ function buildWorkbookSpec(items, deposits, opts) {
       amount: Math.abs(amount),
       category: CATEGORIES.indexOf(o.category) >= 0 ? o.category : guessCategory(o.desc || ''),
       card: normalizeCardName(o.card || ''),
-      tag: String(o.tag || ''),
+      tag: normalizeTagText(o.tag),
       settled: !!o.settled,
       settledAt: /^\d{4}-\d{2}-\d{2}$/.test(o.settledAt || '') ? o.settledAt : ''
     };
@@ -2794,6 +3077,12 @@ function buildWorkbookSpec(items, deposits, opts) {
   }
 
   /* ---------------- 필터 ---------------- */
+  /* v12: 월은 여러 달을 함께 고를 수 있다. allMonths 면 모든 달, 아니면 months 목록만. */
+  function monthMatch(m) {
+    if (state.filters.allMonths) return true;
+    return state.filters.months.indexOf(m) >= 0;
+  }
+
   function filteredItems() {
     var f = state.filters;
     var q = f.q.replace(/^\s+|\s+$/g, '').toLowerCase();
@@ -2801,7 +3090,7 @@ function buildWorkbookSpec(items, deposits, opts) {
     for (i = 0; i < state.items.length; i++) {
       it = state.items[i];
       if (f.cat !== 'all' && it.category !== f.cat) continue;
-      if (f.month !== 'all' && it.month !== f.month) continue;
+      if (!monthMatch(it.month)) continue;
       if (f.settle === 'open' && it.settled) continue;
       if (f.settle === 'done' && !it.settled) continue;
       if (q) {
@@ -2849,14 +3138,27 @@ function buildWorkbookSpec(items, deposits, opts) {
 
   /* 지금 고른 달(또는 전체)의 항목과 이체 기록 */
   function scopeData() {
-    var m = state.filters.month, items = [], deps = [], i;
+    var items = [], deps = [], i;
     for (i = 0; i < state.items.length; i++) {
-      if (m === 'all' || state.items[i].month === m) items.push(state.items[i]);
+      if (monthMatch(state.items[i].month)) items.push(state.items[i]);
     }
     for (i = 0; i < state.deposits.length; i++) {
-      if (m === 'all' || state.deposits[i].month === m) deps.push(state.deposits[i]);
+      if (monthMatch(state.deposits[i].month)) deps.push(state.deposits[i]);
     }
-    return { month: m, items: items, deposits: sortDeposits(deps), settle: settlementOf(items, deps) };
+    return {
+      all: !!state.filters.allMonths,
+      months: state.filters.allMonths ? [] : state.filters.months.slice(),
+      items: items,
+      deposits: sortDeposits(deps),
+      settle: settlementOf(items, deps)
+    };
+  }
+
+  function scopeTitle(sc) {
+    if (sc.all) return '전체 정산';
+    if (sc.months.length === 1) return monthTitle(sc.months[0]) + ' 정산';
+    if (!sc.months.length) return '고른 달 없음';
+    return '선택한 ' + sc.months.length + '개월 정산';
   }
 
   function depositChipsHtml(deps) {
@@ -2880,7 +3182,7 @@ function buildWorkbookSpec(items, deposits, opts) {
     var sc = scopeData();
     var st = sc.settle;
     bar.hidden = false;
-    $('sbTitle').textContent = sc.month === 'all' ? '전체 정산' : monthTitle(sc.month) + ' 정산';
+    $('sbTitle').textContent = scopeTitle(sc);
     $('sbTotal').textContent = won(st.total);
     $('sbTotalSub').textContent = st.count + '건';
     $('sbDep').textContent = won(st.deposit);
@@ -2905,37 +3207,115 @@ function buildWorkbookSpec(items, deposits, opts) {
     box.innerHTML = open || !n ? depositChipsHtml(deps) : '';
   }
 
-  function renderMonthOptions() {
-    var sel = $('filterMonth');
-    var months = {}, list = [], i, y;
+  /* ---------------- 월 고르기 (v12: 여러 달 동시 선택) ---------------- */
+  function itemMonthsDesc() {
+    var seen = {}, list = [], i, m;
     for (i = 0; i < state.items.length; i++) {
-      var m = state.items[i].month;
-      if (m && !months[m]) { months[m] = 1; list.push(m); }
+      m = state.items[i].month;
+      if (m && !seen[m]) { seen[m] = 1; list.push(m); }
     }
     list.sort(function (a, b) { return a < b ? 1 : (a > b ? -1 : 0); });
-    var cur = state.filters.month;
-    var html = '<option value="all">전체 월</option>';
-    var found = false;
-    var years = [], byYear = {};
-    for (i = 0; i < list.length; i++) {
-      y = list[i].slice(0, 4);
-      if (!byYear[y]) { byYear[y] = []; years.push(y); }
-      byYear[y].push(list[i]);
+    return list;
+  }
+
+  function monthCounts() {
+    var n = {}, i, m;
+    for (i = 0; i < state.items.length; i++) {
+      m = state.items[i].month || '';
+      n[m] = (n[m] || 0) + 1;
     }
-    for (i = 0; i < years.length; i++) {
-      var grp = byYear[years[i]];
-      html += '<optgroup label="' + esc(years[i] + '년') + '">';
-      for (var j = 0; j < grp.length; j++) {
-        if (grp[j] === cur) found = true;
-        html += '<option value="' + esc(grp[j]) + '"' + (grp[j] === cur ? ' selected' : '') + '>' + esc(monthTitle(grp[j])) + '</option>';
+    return n;
+  }
+
+  /* 고른 달 중 사라진 달을 걸러 낸다. 고른 달이 하나도 안 남으면 전체로 돌아간다. */
+  function pruneMonths() {
+    if (state.filters.allMonths) return;
+    var have = {}, list = itemMonthsDesc(), i, keep = [];
+    for (i = 0; i < list.length; i++) have[list[i]] = 1;
+    for (i = 0; i < state.filters.months.length; i++) {
+      if (have[state.filters.months[i]]) keep.push(state.filters.months[i]);
+    }
+    keep.sort();
+    if (keep.length !== state.filters.months.length) {
+      if (!keep.length) { state.filters.allMonths = true; state.filters.months = []; }
+      else state.filters.months = keep;
+    }
+  }
+
+  function monthBtnLabel() {
+    if (state.filters.allMonths) return '전체 월';
+    var n = state.filters.months.length;
+    if (!n) return '월 고르기';
+    if (n === 1) return monthTitle(state.filters.months[0]);
+    var desc = state.filters.months.slice().sort().reverse();
+    return monthTitle(desc[0]) + ' 외 ' + (n - 1) + '개월';
+  }
+
+  function renderMonthPicker() {
+    pruneMonths();
+    var btn = $('monthBtn'), listEl = $('monthList'), all = $('moAll'), hint = $('moHint');
+    if (!btn || !listEl) return;
+    btn.textContent = monthBtnLabel() + ' ▾';
+    btn.className = 'pillbtn' + (state.filters.allMonths ? '' : ' is-on');
+    btn.setAttribute('title', state.filters.allMonths ? '눌러서 여러 달을 골라 보세요' : '고른 달만 보고 있어요 · 눌러서 바꾸세요');
+    if (all) all.checked = !!state.filters.allMonths;
+    var months = itemMonthsDesc(), counts = monthCounts();
+    var html = '', year = '', i;
+    for (i = 0; i < months.length; i++) {
+      var y = months[i].slice(0, 4);
+      if (y !== year) {
+        if (year) html += '</div>';
+        html += '<div class="mo-year">' + esc(y + '년') + '</div><div class="mo-year-months">';
+        year = y;
       }
-      html += '</optgroup>';
+      var on = !state.filters.allMonths && state.filters.months.indexOf(months[i]) >= 0;
+      html += '<label class="mo-row"><input type="checkbox" class="mo-chk" data-month="' + esc(months[i]) + '"' + (on ? ' checked' : '') + ' aria-label="' + esc(monthTitle(months[i]) + ' 보기') + '"> ' +
+        esc(monthTitle(months[i])) + ' <i class="mo-cnt">' + formatNumber(counts[months[i]] || 0) + '건</i></label>';
     }
-    sel.innerHTML = html;
-    if (!found) {
-      state.filters.month = 'all';
-      sel.value = 'all';
+    if (year) html += '</div>';
+    if (!months.length) html = '<p class="muted">아직 달이 없어요</p>';
+    listEl.innerHTML = html;
+    if (hint) {
+      if (state.filters.allMonths) hint.textContent = '전체를 풀고 여러 달을 함께 고를 수 있어요';
+      else if (!state.filters.months.length) hint.textContent = '아래에서 달을 골라 주세요';
+      else hint.textContent = state.filters.months.length + '개월을 함께 보고 있어요';
     }
+  }
+
+  function openMonthPop(open) {
+    var pop = $('monthPop'), btn = $('monthBtn');
+    if (!pop || !btn) return;
+    var isOpen = btn.getAttribute('aria-expanded') === 'true';
+    var next = (open === undefined) ? !isOpen : !!open;
+    pop.hidden = !next;
+    btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+  }
+
+  function monthsChanged() {
+    state.collapsed = {};
+    state.depOpen = false;
+    renderMonthPicker();
+    renderList();
+    renderStats();
+    renderBars();
+  }
+
+  function setAllMonths(on) {
+    state.filters.allMonths = !!on;
+    state.filters.months = [];
+    monthsChanged();
+  }
+
+  function setMonthOn(month, on) {
+    if (!month) return;
+    state.filters.allMonths = false;
+    var arr = state.filters.months, i = arr.indexOf(month);
+    if (on) { if (i < 0) arr.push(month); }
+    else if (i >= 0) arr.splice(i, 1);
+    arr.sort();
+    /* 마지막 한 달까지 풀면 다시 전체 월로 돌아간다 */
+    if (!arr.length) state.filters.allMonths = true;
+    monthsChanged();
   }
 
   function renderCatOptions() {
@@ -3056,27 +3436,44 @@ function buildWorkbookSpec(items, deposits, opts) {
     return !!v;
   }
 
-  /* 그 달의 이체 기록이 있으면 머리글에 잔액을 같이 보여준다
-     (잔액은 검색·구분 필터와 상관없이 그 달 청구 전체로 계산한다) */
-  function monthBalHtml(month, fullTotal) {
+  /* 그 달 이체(입금) 누적이 총 청구액을 다 덮었는지 (잔액 <= 0) */
+  function monthCovered(month, total) {
     var dep = monthDepositSum(month);
-    if (!dep) return '';
-    var bal = (fullTotal === undefined ? 0 : fullTotal) - dep;
-    if (bal > 0) return '<span class="m-bal is-open">잔액 ' + won(bal) + '</span>';
-    if (bal < 0) return '<span class="m-bal is-over">이체가 더 많음</span>';
-    return '<span class="m-bal is-done">이체 완료</span>';
+    return dep > 0 && total > 0 && dep >= total - 0.5;
+  }
+
+  /* 달 머리글 배지 (v12)
+     - 이체가 모자라면 '잔액 …원', 더 냈으면 '이체가 더 많음'
+     - 이체 누적이 총 청구액 이상(잔액 0 이하)이면 '이체 완료'를 붙이지 않는다
+     - 그 달 항목이 모두 정산 완료이거나 이체로 다 갚았으면 '정산완료' */
+  function monthBadgeHtml(month, info) {
+    var html = '';
+    var dep = monthDepositSum(month);
+    var total = info ? info.total : 0;
+    if (dep) {
+      var bal = total - dep;
+      if (bal > 0) html += '<span class="m-bal is-open">잔액 ' + won(bal) + '</span>';
+      else if (bal < 0) html += '<span class="m-bal is-over">이체가 더 많음</span>';
+    }
+    var allSettled = !!info && info.count > 0 && info.settled === info.count;
+    if (allSettled || monthCovered(month, total)) {
+      html += '<span class="m-bal is-done">정산완료</span>';
+    }
+    return html;
   }
 
   function renderAllView(items) {
     var html = '<table class="sheet">' + sheetCols() + sheetHeadHtml(true, allSelected(items)) + '<tbody>';
     var alt = 0, i, j;
     var auto = items.length > 250;   /* 4년치처럼 많으면 달을 접어 두고 시작 */
-    var fullMonth = {};
-    if (state.deposits.length) {
-      for (i = 0; i < state.items.length; i++) {
-        var fm = state.items[i].month || '';
-        fullMonth[fm] = (fullMonth[fm] || 0) + state.items[i].amount;
-      }
+    /* 달마다 청구 전체(검색·구분 필터와 무관)와 정산 완료 수 — 머리글 배지용 */
+    var fullMonth = {}, fm;
+    for (i = 0; i < state.items.length; i++) {
+      fm = state.items[i].month || '';
+      if (!fullMonth[fm]) fullMonth[fm] = { total: 0, count: 0, settled: 0 };
+      fullMonth[fm].total += state.items[i].amount;
+      fullMonth[fm].count++;
+      if (state.items[i].settled) fullMonth[fm].settled++;
     }
 
     if (state.filters.sort === 'card') {
@@ -3087,14 +3484,13 @@ function buildWorkbookSpec(items, deposits, opts) {
         var ccol = collapseOf(ckey, i, auto);
         var cgIds = idsOf(cg.items);
         var cgOn = idsAllSelected(cgIds);
-        state.groupIndex[ckey] = { ids: cgIds, label: cg.card, copyTitle: cg.card, collapsed: ccol };
+        state.groupIndex[ckey] = { ids: cgIds, label: cg.card, collapsed: ccol };
         html += '<tr class="month-row card-row" data-group="' + esc(ckey) + '"><td colspan="6"><div class="m-inner">';
         html += '<span class="caret">' + (ccol ? '▸' : '▾') + '</span>';
         html += '<span class="m-title">' + esc(cg.card) + '</span>';
         html += '<span class="m-meta">' + cg.count + '건 · ' + won(cg.sum) + '</span>';
         html += '<span class="m-act">';
         html += '<button type="button" class="g-chip' + (cgOn ? ' is-on' : '') + '" data-act="select-group" data-group="' + esc(ckey) + '"' + selBtnAttrs(cgOn) + '>선택</button>';
-        html += '<button type="button" class="g-chip" data-act="copy-group" data-group="' + esc(ckey) + '">복사</button>';
         html += '</span></div></td></tr>';
         if (ccol) continue;
         for (j = 0; j < cg.items.length; j++) { html += rowHtml(cg.items[j], (alt % 2) === 1); alt++; }
@@ -3108,17 +3504,16 @@ function buildWorkbookSpec(items, deposits, opts) {
         var col = collapseOf(key, i, auto);
         var mgIds = idsOf(mg.items);
         var mgOn = idsAllSelected(mgIds);
-        state.groupIndex[key] = { ids: mgIds, label: monthTitle(mg.month), copyTitle: '정산', collapsed: col };
+        state.groupIndex[key] = { ids: mgIds, label: monthTitle(mg.month), collapsed: col };
         var tags = uniqueTags(mg.items);
         html += '<tr class="month-row" data-group="' + esc(key) + '"><td colspan="6"><div class="m-inner">';
         html += '<span class="caret">' + (col ? '▸' : '▾') + '</span>';
         html += '<span class="m-title">' + esc(monthTitle(mg.month)) + '</span>';
         for (j = 0; j < tags.length; j++) html += '<span class="tag-chip">' + esc(tags[j]) + '</span>';
         html += '<span class="m-meta">' + mg.items.length + '건 · ' + won(msum) + '</span>';
-        html += monthBalHtml(mg.month, fullMonth[mg.month] || 0);
+        html += monthBadgeHtml(mg.month, fullMonth[mg.month]);
         html += '<span class="m-act">';
         html += '<button type="button" class="g-chip' + (mgOn ? ' is-on' : '') + '" data-act="select-group" data-group="' + esc(key) + '"' + selBtnAttrs(mgOn) + '>선택</button>';
-        html += '<button type="button" class="g-chip" data-act="copy-group" data-group="' + esc(key) + '">복사</button>';
         html += '</span></div></td></tr>';
         if (col) continue;
         for (j = 0; j < mg.items.length; j++) { html += rowHtml(mg.items[j], (alt % 2) === 1); alt++; }
@@ -3146,24 +3541,23 @@ function buildWorkbookSpec(items, deposits, opts) {
     var total = sumAmount(subset);
     var html = '<table class="sheet sheet-grp"><thead><tr>';
     html += '<th>' + (mode === 'card' ? '카드' : '내역') + '</th>';
-    html += '<th class="ta-r">건수</th><th class="ta-r">합계</th><th class="ta-r">비중</th><th class="g-copy"></th>';
+    html += '<th class="ta-r">건수</th><th class="ta-r">합계</th><th class="ta-r">비중</th>';
     html += '</tr></thead><tbody>';
     for (var g = 0; g < groups.length; g++) {
       var grp = groups[g];
       var key = mode + '::' + grp.key;
       if (state.expanded[key] === undefined) state.expanded[key] = (mode === 'desc');
       var open = !!state.expanded[key];
-      state.groupIndex[key] = { ids: idsOf(grp.items), label: grp.key, copyTitle: grp.key };
+      state.groupIndex[key] = { ids: idsOf(grp.items), label: grp.key };
       var pct = total ? Math.round(grp.sum / total * 100) : 0;
       html += '<tr class="grp-row' + (open ? ' is-open' : '') + '" data-group="' + esc(key) + '">';
       html += '<td class="g-name"><span class="caret">' + (open ? '▾' : '▸') + '</span>' + esc(grp.key) + '</td>';
       html += '<td class="ta-r">' + grp.count + '건</td>';
       html += '<td class="ta-r">' + won(grp.sum) + '</td>';
       html += '<td class="ta-r">' + pct + '%</td>';
-      html += '<td class="g-copy"><button type="button" class="g-chip" data-act="copy-group" data-group="' + esc(key) + '">복사</button></td>';
       html += '</tr>';
       if (open) {
-        html += '<tr class="grp-detail"><td colspan="5"><table class="sheet sub">' + sheetCols() + sheetHeadHtml(false, false) + '<tbody>';
+        html += '<tr class="grp-detail"><td colspan="4"><table class="sheet sub">' + sheetCols() + sheetHeadHtml(false, false) + '<tbody>';
         var alt = 0;
         for (j = 0; j < grp.items.length; j++) { html += rowHtml(grp.items[j], (alt % 2) === 1); alt++; }
         html += '</tbody></table></td></tr>';
@@ -3173,7 +3567,7 @@ function buildWorkbookSpec(items, deposits, opts) {
     html += '<td class="tot-label">합계 <b>' + subset.length + '건</b></td>';
     html += '<td class="ta-r">' + groups.length + '개</td>';
     html += '<td class="ta-r tot-amt"><b>' + won(total) + '</b></td>';
-    html += '<td class="ta-r">100%</td><td></td>';
+    html += '<td class="ta-r">100%</td>';
     html += '</tr></tfoot></table>';
     return html;
   }
@@ -3187,8 +3581,7 @@ function buildWorkbookSpec(items, deposits, opts) {
     }
     var dOn = idsAllSelected(idsOf(subset));
     el.innerHTML = '<div class="row2"><span>‘' + esc(state.descQuery) + '’ <b>' + subset.length + '건 · ' + won(sumAmount(subset)) + '</b></span>' +
-      '<button type="button" class="g-chip' + (dOn ? ' is-on' : '') + '" data-act="select-desc"' + selBtnAttrs(dOn) + '>이 결과 선택</button>' +
-      '<button type="button" class="g-chip" data-act="copy-desc">복사</button></div>';
+      '<button type="button" class="g-chip' + (dOn ? ' is-on' : '') + '" data-act="select-desc"' + selBtnAttrs(dOn) + '>이 결과 선택</button></div>';
   }
 
   function showEmpty(msg) {
@@ -3207,7 +3600,6 @@ function buildWorkbookSpec(items, deposits, opts) {
     renderSettleBar();
 
     $('descTools').hidden = state.view !== 'desc';
-    $('copySummaryBtn').hidden = state.view !== 'card';
 
     if (!state.items.length) {
       $('descResult').innerHTML = '';
@@ -3270,11 +3662,12 @@ function buildWorkbookSpec(items, deposits, opts) {
 
   function renderAll() {
     renderStats();
-    renderMonthOptions();
+    renderMonthPicker();
     renderList();
     renderBars();
     renderCardDatalist();
     updateSelBar();
+    refreshDirty();
   }
 
   /* ---------------- 선택 / 정산 ---------------- */
@@ -3352,37 +3745,24 @@ function buildWorkbookSpec(items, deposits, opts) {
     if (!sel.length) { toast('먼저 항목을 선택해 주세요'); return; }
     var snap = pushUndo();
     for (var i = 0; i < sel.length; i++) sel[i].settled = flag;
-    saveSoon();
+    markChanged();
     renderAll();
     settleUndo(snap);
     toast(flag ? sel.length + '건을 정산 완료로 표시했어요' : sel.length + '건을 미정산으로 되돌렸어요');
   }
 
-  /* ---------------- 클립보드 ---------------- */
-  function copyText(text, msg) {
-    function done() { toast(msg || '복사했어요'); }
-    function fallback() {
-      var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.top = '-1000px';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      var ok = false;
-      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
-      document.body.removeChild(ta);
-      if (ok) done();
-      else {
-        $('copyText').value = text;
-        $('copyModal').hidden = false;
-      }
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, fallback);
-    } else {
-      fallback();
-    }
+  /* ---------------- 전체 초기화 ---------------- */
+  function resetAll() {
+    var snap = pushUndo();
+    state.items = [];
+    state.deposits = [];
+    state.selected = {};
+    state.collapsed = {};
+    state.depOpen = false;
+    state.filters.allMonths = true;
+    state.filters.months = [];
+    renderAll();
+    toast('모두 지웠어요', '되돌리기', function () { undoTo(snap); });
   }
 
   /* ---------------- 토스트 ---------------- */
@@ -3416,13 +3796,13 @@ function buildWorkbookSpec(items, deposits, opts) {
     var snap = pushUndo();
     var removed = state.items.splice(idx, 1)[0];
     delete state.selected[id];
-    saveSoon();
+    markChanged();
     renderAll();
     /* 토스트의 [되돌리기] — 지운 그 항목만 정확히 되살린다(그 사이 다른 작업은 건드리지 않는다) */
     toast('1건 삭제했어요', '되돌리기', function () {
       dropUndo(snap);
       if (!findItem(removed.id)) state.items.splice(Math.min(idx, state.items.length), 0, removed);
-      saveSoon();
+      markChanged();
       renderAll();
       toast('직전 상태로 되돌렸어요');
     });
@@ -3442,7 +3822,7 @@ function buildWorkbookSpec(items, deposits, opts) {
     }
     state.items = keep;
     state.selected = {};
-    saveSoon();
+    markChanged();
     renderAll();
     toast(n + '건 삭제했어요', '되돌리기', function () {
       dropUndo(snap);
@@ -3451,7 +3831,7 @@ function buildWorkbookSpec(items, deposits, opts) {
       for (j = 0; j < removedList.length; j++) {
         if (!have[removedList[j].id]) state.items.push(removedList[j]);
       }
-      saveSoon();
+      markChanged();
       renderAll();
       toast('직전 상태로 되돌렸어요');
     });
@@ -3500,7 +3880,7 @@ function buildWorkbookSpec(items, deposits, opts) {
     var at = $('dSettledAt').value || '';
     it.settledAt = it.settled && /^\d{4}-\d{2}-\d{2}$/.test(at) ? at : '';
     closeItemEdit();
-    saveSoon();
+    markChanged();
     renderAll();
     settleUndo(snap);
     toast('고쳤어요');
@@ -3508,7 +3888,7 @@ function buildWorkbookSpec(items, deposits, opts) {
 
   /* ---------------- 입금·이체 기록 ---------------- */
   function defaultDepositMonth() {
-    if (state.filters.month !== 'all') return state.filters.month;
+    if (!state.filters.allMonths && state.filters.months.length === 1) return state.filters.months[0];
     var months = monthsOf(state.items);
     if (months.length) return months[months.length - 1];
     return todayIso().slice(0, 7);
@@ -3552,7 +3932,7 @@ function buildWorkbookSpec(items, deposits, opts) {
       state.deposits.push({ id: uid(), month: month, amount: Math.round(amount), date: date, memo: memo });
     }
     closeDeposit();
-    saveSoon();
+    markChanged();
     renderAll();
     settleUndo(snap);
     toast(cur ? '이체 기록을 고쳤어요' : '이체 기록을 넣었어요');
@@ -3566,15 +3946,123 @@ function buildWorkbookSpec(items, deposits, opts) {
     if (idx < 0) return;
     var snap = pushUndo();
     var removed = state.deposits.splice(idx, 1)[0];
-    saveSoon();
+    markChanged();
     renderAll();
     toast('이체 기록을 지웠어요', '되돌리기', function () {
       dropUndo(snap);
       if (!findDeposit(removed.id)) state.deposits.splice(Math.min(idx, state.deposits.length), 0, removed);
-      saveSoon();
+      markChanged();
       renderAll();
       toast('직전 상태로 되돌렸어요');
     });
+  }
+
+  /* ---------------- 의심 금액 확인 (v12) ---------------- */
+  /* 붙여넣기·엑셀에서 금액이 의심스러우면 바로 등록하지 않고 이 창에서 먼저 묻는다.
+     payload: { from:'paste'|'sheet', rows, skipped, headers, issues, parsed?, aoa?, map? } */
+  function openAmountCheck(payload) {
+    state.amountPayload = payload;
+    state.amountIssues = [];
+    var list = payload.issues || [], i, s;
+    for (i = 0; i < list.length; i++) {
+      s = list[i];
+      var hasAmt = !(s.amount === null || s.amount === undefined);
+      state.amountIssues.push({
+        kind: s.kind, index: s.index, at: s.at, line: s.line || '',
+        desc: s.desc || '', why: s.why || '', code: s.code || '',
+        amount: hasAmt ? Math.abs(s.amount) : null,
+        checked: hasAmt && !!s.amount
+      });
+    }
+    $('amountNote').textContent = '금액이 의심스러운 줄 ' + state.amountIssues.length +
+      '개예요. 금액을 고치거나, 넣지 않으려면 체크를 풀어 주세요.';
+    renderAmountCheck();
+    $('amountModal').hidden = false;
+    try { $('amountModal').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { }
+  }
+
+  function renderAmountCheck() {
+    var html = '', i, s, amtTxt;
+    for (i = 0; i < state.amountIssues.length; i++) {
+      s = state.amountIssues[i];
+      amtTxt = (s.amount === null || s.amount === undefined) ? '' : formatNumber(s.amount);
+      html += '<div class="amt-row' + (s.checked ? '' : ' is-off') + '">';
+      html += '<label class="amt-chk"><input type="checkbox" class="a-chk" data-i="' + i + '"' + (s.checked ? ' checked' : '') + ' aria-label="이 줄 넣기"></label>';
+      html += '<div class="amt-body"><div class="amt-line">' + esc(s.line || '(빈 줄)') + '</div>';
+      html += '<div class="amt-why">' + esc(s.why) + (s.desc ? ' · ' + esc(s.desc) : '') + '</div></div>';
+      html += '<input type="text" class="a-amount" data-i="' + i + '" inputmode="numeric" value="' + esc(amtTxt) + '" placeholder="금액" aria-label="금액">';
+      html += '</div>';
+    }
+    $('amountList').innerHTML = html;
+  }
+
+  function closeAmountCheck() {
+    $('amountModal').hidden = true;
+    state.amountPayload = null;
+    state.amountIssues = [];
+  }
+
+  function applyAmountCheck() {
+    var p = state.amountPayload;
+    if (!p) { closeAmountCheck(); return; }
+    var rows = [], i, s, iss, made;
+    if (p.from === 'sheet') {
+      var rowIss = {}, dropIss = {};
+      for (i = 0; i < state.amountIssues.length; i++) {
+        s = state.amountIssues[i];
+        if (s.kind === 'row') rowIss[s.index] = s;
+        else dropIss[s.at] = s;
+      }
+      var parsed = p.parsed || { rows: [] };
+      for (i = 0; i < parsed.rows.length; i++) {
+        var r = parsed.rows[i];
+        iss = rowIss[i];
+        if (!iss) { rows.push(r); continue; }
+        if (!iss.checked || !iss.amount) continue;
+        r.amount = iss.amount;
+        rows.push(r);
+      }
+      for (i = 0; i < state.amountIssues.length; i++) {
+        s = state.amountIssues[i];
+        if (s.kind !== 'dropped' || !s.checked || !s.amount) continue;
+        made = sheetRowOf(p.aoa, p.map, s.at, s.amount, todayIso());
+        if (made) rows.push(made);
+      }
+    } else {
+      var rowIss2 = {}, skipIss = {};
+      for (i = 0; i < state.amountIssues.length; i++) {
+        s = state.amountIssues[i];
+        if (s.kind === 'skip') skipIss[s.index] = s;
+        else rowIss2[s.index] = s;
+      }
+      for (i = 0; i < p.rows.length; i++) {
+        var r2 = p.rows[i];
+        iss = rowIss2[i];
+        if (!iss) { rows.push(r2); continue; }
+        if (!iss.checked || !iss.amount) continue;
+        r2.amount = iss.amount;
+        rows.push(r2);
+      }
+      var sk = p.skipped || [];
+      for (i = 0; i < sk.length; i++) {
+        s = skipIss[i];
+        if (!s) continue;
+        if (!s.checked || !s.amount) continue;
+        made = rowFromLine(s.line, { amount: s.amount, today: todayIso(), aliases: state.aliases });
+        if (made) rows.push(made);
+      }
+    }
+    /* 금액을 못 찾아 건너뛷던 줄은 여기서 처리했으니 미리보기 안내에서는 뺀다 */
+    var restSkipped = [], old = p.skipped || [];
+    for (i = 0; i < old.length; i++) {
+      if (old[i].why !== '금액을 찾지 못했어요') restSkipped.push(old[i]);
+    }
+    closeAmountCheck();
+    if (p.ledger) {
+      showPreview(rows, [], [], { mode: 'ledger', info: ledgerInfoForRows(p.ledger, rows) });
+      return;
+    }
+    showPreview(rows, restSkipped, p.headers || []);
   }
 
   /* ---------------- 입력 파싱 / 미리보기 ---------------- */
@@ -3897,7 +4385,6 @@ function buildWorkbookSpec(items, deposits, opts) {
     state.syncSettled = true;
     if ($('syncSettledWrap')) $('syncSettledWrap').hidden = true;
     if (!wasLedger) $('pasteInput').value = '';
-    persistNow();
     renderAll();
     if (!wasLedger) { toast(added + '건 등록했어요'); return; }
     var msg = formatNumber(added) + '건 등록';
@@ -3976,14 +4463,45 @@ function buildWorkbookSpec(items, deposits, opts) {
     var res = parseLedgerSheets(sheets, { aliases: state.aliases });
     if (!res.count) return false;
     $('inputCard').hidden = true;
-    showPreview(res.rows, [], [], {
-      mode: 'ledger',
-      info: {
-        fileName: fileName, sheets: res.checks.sheets, checks: res.checks,
-        total: res.total, count: res.count, months: res.months, transfers: res.transfers
-      }
-    });
+    var info = {
+      fileName: fileName, sheets: res.checks.sheets, checks: res.checks,
+      total: res.total, count: res.count, months: res.months, transfers: res.transfers
+    };
+    /* 금액이 너무 크거나 작은 줄은 조용히 넣지 않고 먼저 확인받는다 (v12) */
+    var issues = scanRowAmountIssues(res.rows);
+    if (issues.length) {
+      openAmountCheck({ from: 'paste', rows: res.rows, skipped: [], headers: [], issues: issues, ledger: info });
+      return true;
+    }
+    showPreview(res.rows, [], [], { mode: 'ledger', info: info });
     return true;
+  }
+
+  /* 확인 창에서 몇 줄을 뺐어도 달별 요약은 남은 줄로 다시 계산한다 */
+  function ledgerInfoForRows(info, rows) {
+    var by = {}, order = [], base = {}, list = (info && info.months) || [], i, r, m, g, b, months = [];
+    for (i = 0; i < rows.length; i++) {
+      r = rows[i];
+      m = r.month || '';
+      if (!by[m]) { by[m] = { month: m, count: 0, sum: 0 }; order.push(m); }
+      by[m].count++;
+      by[m].sum += r.amount;
+    }
+    for (i = 0; i < list.length; i++) base[list[i].month] = list[i];
+    order.sort();
+    for (i = 0; i < order.length; i++) {
+      g = by[order[i]];
+      b = base[order[i]] || {};
+      months.push({
+        name: b.name || order[i], month: order[i], count: g.count, sum: g.sum,
+        deposit: b.deposit || 0, balance: g.sum - (b.deposit || 0),
+        done: !!b.done, doneDate: b.doneDate || '', transferCount: b.transferCount || 0
+      });
+    }
+    return {
+      fileName: info && info.fileName, sheets: info && info.sheets, checks: info && info.checks,
+      total: 0, count: rows.length, months: months, transfers: (info && info.transfers) || []
+    };
   }
 
   function handleFile(file) {
@@ -4154,13 +4672,18 @@ function buildWorkbookSpec(items, deposits, opts) {
     var f = state.file;
     if (!f) return;
     f.map = readMapFromPanel();
-    var rows = rowsFromAOA(f.aoa, f.map, f.headerIndex, todayIso());
-    $('mapSummary').textContent = '내역 ' + rows.length + '건을 찾았어요';
-    if (!rows.length) {
+    var parsed = parseSheetRows(f.aoa, f.map, f.headerIndex, todayIso());
+    $('mapSummary').textContent = '내역 ' + parsed.rows.length + '건을 찾았어요';
+    if (!parsed.rows.length && !parsed.issues.length) {
       toast('읽을 수 있는 지출이 없어요. 열 설정을 확인해 주세요');
       return;
     }
-    showPreview(rows, [], []);
+    /* 금액을 못 읽었거나 의심스러운 줄은 먼저 확인받는다 (v12) */
+    if (parsed.issues.length) {
+      openAmountCheck({ from: 'sheet', parsed: parsed, aoa: f.aoa, map: f.map, headers: [], skipped: [], issues: parsed.issues });
+      return;
+    }
+    showPreview(parsed.rows, [], []);
   }
 
   /* ---------------- 카드 약어 설정 ---------------- */
@@ -4257,7 +4780,7 @@ function buildWorkbookSpec(items, deposits, opts) {
 
   function filtersActive() {
     var f = state.filters;
-    return !!(String(f.q).replace(/\s/g, '') || f.cat !== 'all' || f.month !== 'all' || f.settle !== 'all');
+    return !!(String(f.q).replace(/\s/g, '') || f.cat !== 'all' || !f.allMonths || f.settle !== 'all');
   }
 
   /* 화면에 보이는 목록(필터·정렬 그대로)을 .xlsx로 내려받는다.
@@ -4351,7 +4874,6 @@ function buildWorkbookSpec(items, deposits, opts) {
       settled: false
     });
     $('modal').hidden = true;
-    persistNow();
     renderAll();
     toast('추가했어요');
   }
@@ -4377,7 +4899,7 @@ function buildWorkbookSpec(items, deposits, opts) {
   function wire() {
     /* 실행취소 · 저장 */
     $('undoBtn').addEventListener('click', undoLast);
-    $('saveBtn').addEventListener('click', saveNow);
+    $('saveBtn').addEventListener('click', function () { saveNow(); });
 
     /* 입력 패널 열기/닫기 */
     $('openPasteBtn').addEventListener('click', function () { openInput('paste'); });
@@ -4397,10 +4919,17 @@ function buildWorkbookSpec(items, deposits, opts) {
       var text = $('pasteInput').value;
       if (!text.replace(/\s/g, '')) { toast('붙여넣을 내역을 먼저 넣어 주세요'); return; }
       var res = parseExpenseText(text, { today: todayIso(), aliases: state.aliases });
-      if (!res.rows.length) {
+      var issues = scanPasteIssues(res);
+      if (!res.rows.length && !issues.length) {
         toast('읽을 수 있는 지출이 없어요. 금액이 있는지 확인해 주세요');
-      } else {
-        $('inputCard').hidden = true;
+        showPreview(res.rows, res.skipped, res.headers);
+        return;
+      }
+      $('inputCard').hidden = true;
+      /* 금액이 의심스러운 줄이 있으면 먼저 확인받는다 (v12) */
+      if (issues.length) {
+        openAmountCheck({ from: 'paste', rows: res.rows, skipped: res.skipped, headers: res.headers, issues: issues });
+        return;
       }
       showPreview(res.rows, res.skipped, res.headers);
     });
@@ -4537,6 +5066,27 @@ function buildWorkbookSpec(items, deposits, opts) {
         renderSettleBar();
       }
     });
+    /* 의심 금액 확인 창 */
+    $('amountList').addEventListener('change', function (e) {
+      var t = e.target;
+      var i = parseInt(t.getAttribute('data-i'), 10);
+      if (isNaN(i) || !state.amountIssues[i]) return;
+      if (String(t.className).indexOf('a-chk') >= 0) {
+        state.amountIssues[i].checked = !!t.checked;
+        renderAmountCheck();
+        return;
+      }
+      if (String(t.className).indexOf('a-amount') >= 0) {
+        var v = parseAmount(t.value);
+        if (v === null || v === 0) { state.amountIssues[i].amount = null; state.amountIssues[i].checked = false; }
+        else { state.amountIssues[i].amount = Math.abs(v); state.amountIssues[i].checked = true; }
+        renderAmountCheck();
+      }
+    });
+    $('amountOk').addEventListener('click', applyAmountCheck);
+    $('amountCancel').addEventListener('click', closeAmountCheck);
+    $('amountModal').addEventListener('click', function (e) { if (e.target === this) closeAmountCheck(); });
+
     $('dpSave').addEventListener('click', saveDeposit);
     $('dpCancel').addEventListener('click', closeDeposit);
     $('depModal').addEventListener('click', function (e) { if (e.target === this) closeDeposit(); });
@@ -4573,11 +5123,16 @@ function buildWorkbookSpec(items, deposits, opts) {
       state.filters.cat = this.value;
       renderList(); renderStats(); renderBars();
     });
-    $('filterMonth').addEventListener('change', function () {
-      state.filters.month = this.value;
-      state.collapsed = {};
-      state.depOpen = false;
-      renderList(); renderStats(); renderBars();
+    /* 월 고르기 (v12: 여러 달) */
+    $('monthBtn').addEventListener('click', function () {
+      openMonthPop();
+    });
+    $('monthClose').addEventListener('click', function () { openMonthPop(false); });
+    $('moAll').addEventListener('change', function () { setAllMonths(!!this.checked); });
+    $('monthList').addEventListener('change', function (e) {
+      var t = e.target;
+      if (String(t.className).indexOf('mo-chk') < 0) return;
+      setMonthOn(t.getAttribute('data-month'), !!t.checked);
     });
     $('filterSettle').addEventListener('change', function () {
       state.filters.settle = this.value;
@@ -4606,12 +5161,6 @@ function buildWorkbookSpec(items, deposits, opts) {
     $('btnSettle').addEventListener('click', function () { setSettled(true); });
     $('btnUnsettle').addEventListener('click', function () { setSettled(false); });
     $('btnDelete').addEventListener('click', deleteSelected);
-    $('btnCopySel').addEventListener('click', function () {
-      var sel = selectedItems();
-      if (!sel.length) return;
-      var sdep = depositsInMonths(state.deposits, monthsOf(sel));
-      copyText(buildSelectionText(sel, { settlement: settlementOf(sel, sdep) }), '선택한 ' + sel.length + '건을 복사했어요');
-    });
     $('btnSelClose').addEventListener('click', clearSelection);
 
     /* 목록 이벤트 */
@@ -4668,7 +5217,7 @@ function buildWorkbookSpec(items, deposits, opts) {
         if (/^\d{4}-\d{2}$/.test(t.value)) { it.month = t.value; it.date = ''; }
         else t.value = it.month;
       }
-      saveSoon();
+      markChanged();
       renderStats();
       renderBars();
       renderMonthOptions();
@@ -4710,7 +5259,7 @@ function buildWorkbookSpec(items, deposits, opts) {
         if (stIt) {
           var stSnap = pushUndo();
           stIt.settled = !stIt.settled;
-          saveSoon(); renderAll();
+          markChanged(); renderAll();
           settleUndo(stSnap);
           toast(stIt.settled ? '정산 완료로 표시했어요' : '미정산으로 되돌렸어요');
         }
@@ -4729,15 +5278,6 @@ function buildWorkbookSpec(items, deposits, opts) {
         }
         return;
       }
-      if (act === 'copy-group') {
-        var g2 = state.groupIndex[group];
-        if (g2 && g2.ids.length) {
-          var glist = itemsByIds(g2.ids);
-          var gdep = depositsInMonths(state.deposits, monthsOf(glist));
-          copyText(buildSelectionText(glist, { title: g2.copyTitle || g2.label, settlement: settlementOf(glist, gdep) }), g2.label + ' 복사했어요');
-        }
-        return;
-      }
     });
 
     /* 내역별 결과 버튼 */
@@ -4748,35 +5288,19 @@ function buildWorkbookSpec(items, deposits, opts) {
         var dTook = toggleSelectIds(state.descIds);
         if (dTook < 0) toast(-dTook + '건 선택을 풀었어요');
       }
-      if (act === 'copy-desc') {
-        var list = itemsByIds(state.descIds);
-        if (list.length) copyText(buildSelectionText(list), '복사했어요');
-      }
-    });
-
-    $('copySummaryBtn').addEventListener('click', function () {
-      var items = filteredItems();
-      if (!items.length) { toast('요약할 내역이 없어요'); return; }
-      copyText(buildCardSummaryText(items), '카드별 요약을 복사했어요');
     });
 
     /* 데이터 */
     $('csvBtn').addEventListener('click', exportCsv);
     $('xlsxBtn').addEventListener('click', exportXlsx);
+    /* 전체 초기화 — 저장 안 한 변경이 있으면 먼저 묻고(예/아니오) 진행한다 */
     $('resetBtn').addEventListener('click', function () {
       if (!state.items.length && !state.deposits.length) { toast('지울 내역이 없어요'); return; }
-      if (!confirm('저장된 지출 내역 ' + state.items.length + '건과 이체 기록 ' + state.deposits.length +
-        '건을 모두 지울까요?\n지운 직후에는 위쪽 [↩ 실행취소]로 되돌릴 수 있어요(앱을 닫으면 이력은 사라져요).\n필요하면 먼저 CSV로 백업해 주세요.')) return;
-      var snap = pushUndo();
-      state.items = [];
-      state.deposits = [];
-      state.selected = {};
-      state.collapsed = {};
-      state.depOpen = false;
-      persistNow();
-      renderAll();
-      toast('모두 지웠어요', '되돌리기', function () { undoTo(snap); });
+      askDirtyThen(resetAll);
     });
+    $('dirtyYes').addEventListener('click', function () { resolveDirty(true); });
+    $('dirtyNo').addEventListener('click', function () { resolveDirty(false); });
+    $('dirtyModal').addEventListener('click', function (e) { if (e.target === this) closeDirty(); });
 
     /* 추가 모달 */
     $('addBtn').addEventListener('click', openAdd);
@@ -4795,15 +5319,13 @@ function buildWorkbookSpec(items, deposits, opts) {
       if (id) deleteItem(id);
     });
     $('dCard').addEventListener('keydown', function (e) { if (e.key === 'Enter') saveItemEdit(); });
-    $('copyClose').addEventListener('click', function () { $('copyModal').hidden = true; });
-    $('copyModal').addEventListener('click', function (e) { if (e.target === this) this.hidden = true; });
 
     /* 카드 약어 */
     $('aliasList').addEventListener('change', function () {
       var snap = pushUndo();
       collectAliases();
-      persistAliases();
       renderCardDatalist();
+      refreshDirty();
       settleUndo(snap);
     });
     $('aliasList').addEventListener('click', function (e) {
@@ -4812,8 +5334,8 @@ function buildWorkbookSpec(items, deposits, opts) {
       var snap = pushUndo();
       collectAliases();
       state.aliases.splice(idx, 1);
-      persistAliases();
       renderAliasList();
+      refreshDirty();
       settleUndo(snap);
     });
     $('aliasAdd').addEventListener('click', function () {
@@ -4829,17 +5351,14 @@ function buildWorkbookSpec(items, deposits, opts) {
       if (!confirm('카드 약어를 기본값으로 되돌릴까요?')) return;
       var snap = pushUndo();
       state.aliases = normalizeAliases(DEFAULT_CARD_ALIASES);
-      persistAliases();
       renderAliasList();
+      refreshDirty();
       settleUndo(snap);
       toast('기본값으로 되돌렸어요');
     });
 
-    /* 저장 보장 */
-    window.addEventListener('pagehide', persistNow);
-    document.addEventListener('visibilitychange', function () {
-      if (document.hidden) persistNow();
-    });
+    /* v12: 자동 저장을 없앴으니 닫기·새로고침·뒤로가기 때 저장 안 한 변경을 알린다 */
+    window.addEventListener('beforeunload', onBeforeUnload);
 
     /* 엑셀 라이브러리를 못 불러왔으면 다른 CDN으로 한 번 더 */
     window.addEventListener('load', function () {
@@ -4868,8 +5387,14 @@ function buildWorkbookSpec(items, deposits, opts) {
     renderAll();
     $('filterSort').value = state.filters.sort;
     updateUndoBtn();
+    /* 처음에 닫혀 있는 것들 (HTML 의 hidden 과 같은 상태) */
+    $('dirtyModal').hidden = true;
+    $('amountModal').hidden = true;
+    $('monthPop').hidden = true;
+    $('previewCard').hidden = true;
+    $('inputCard').hidden = true;
+    markClean();
     wire();
-    setSaveState(state.items.length ? '자동 저장' : '자동 저장');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
