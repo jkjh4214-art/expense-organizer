@@ -182,8 +182,11 @@ textarea:focus, input:focus, select:focus {
 .g-chip.is-on { background: #e8efff; border-color: #aabdea; color: #1e40af; font-weight: 700; }
 .g-chip.is-on:hover { background: #dde7fd; }
 
-.filters { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)); gap: 6px; }
+.filters { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)) auto; gap: 6px; }
 .filters select, .filters input { font-size: 12.5px; padding: 6px 8px; }
+/* v13: 필터 초기화 — 검색·월·카테고리·정산을 한 번에 전체로 (선택 막대의 [해제]와 다른 단추) */
+.filter-reset { padding: 6px 9px; font-size: 11.5px; white-space: nowrap; color: #475569; }
+.filter-reset.is-on { color: var(--accent); border-color: #aabdea; background: #eef4ff; font-weight: 600; }
 
 /* v12: 월 여러 개 고르기 (단추 + 체크 목록) */
 .month-wrap { position: relative; min-width: 0; }
@@ -194,10 +197,17 @@ textarea:focus, input:focus, select:focus {
 }
 .pillbtn.is-on { border-color: #aabdea; background: #eef4ff; color: #1e40af; font-weight: 600; }
 .month-pop {
-  position: absolute; z-index: 40; left: 0; top: calc(100% + 4px); width: 190px;
+  position: absolute; z-index: 40; left: 0; top: calc(100% + 4px); width: 208px;
   background: #fff; border: 1px solid #d7dbe0; border-radius: 10px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, .16); padding: 8px; max-height: 46vh; overflow-y: auto;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .16); padding: 8px;
+  display: flex; flex-direction: column; max-height: 56vh;
 }
+/* v13: 위·아래 [선택완료]는 고정, 가운데 달 목록만 스크롤한다 */
+.mo-head { display: flex; align-items: center; gap: 6px; justify-content: space-between; border-bottom: 1px solid #eef1f6; padding-bottom: 5px; }
+.mo-head .mo-all { border: 0; margin: 0; padding: 0; font-size: 12.5px; font-weight: 600; }
+.mo-list { flex: 1 1 auto; min-height: 0; max-height: 40vh; overflow-y: auto; overscroll-behavior: contain; padding: 2px 0; }
+.mo-done { padding: 4px 9px; font-size: 11.5px; color: var(--accent); border-color: #c7d6f5; background: #f6f9ff; font-weight: 600; }
+.mo-done:active { background: #e8f0fe; }
 .mo-all { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding-bottom: 5px; border-bottom: 1px solid #eef1f6; margin-bottom: 4px; font-weight: 600; }
 .mo-year { font-size: 10.5px; color: #9aa3af; padding: 5px 2px 1px; }
 .mo-year-months { display: flex; flex-direction: column; }
@@ -205,7 +215,7 @@ textarea:focus, input:focus, select:focus {
 .mo-row input { width: 15px; height: 15px; accent-color: var(--accent); margin: 0; }
 .mo-cnt { font-style: normal; margin-left: auto; font-size: 10.5px; color: #9aa3af; font-variant-numeric: tabular-nums; }
 .mo-foot { display: flex; align-items: center; gap: 6px; justify-content: space-between; border-top: 1px solid #eef1f6; margin-top: 5px; padding-top: 5px; }
-.mo-foot .muted { font-size: 10.5px; }
+.mo-foot .muted { font-size: 10.5px; flex: 1 1 auto; min-width: 0; }
 
 /* v12: 의심 금액 확인 창 */
 .modal-card.modal-wide { max-width: 460px; }
@@ -294,9 +304,13 @@ table.sheet {
 .sheet td.c-set { text-align: center; }
 
 .sheet tr.row.alt td { background: var(--alt); }
-.sheet tr.row.is-sel td { background: var(--sel); }
+/* v13: 정산 완료 행은 옅게 — 미정산이 한눈에 도드라지게 (체크박스·날짜는 그대로 누를 수 있게) */
+.sheet tr.row.is-settled td { background: #f7f8fa; }
 .sheet tr.row.is-settled td.c-amt input { color: #9ca3af; text-decoration: line-through; }
-.sheet tr.row.is-settled td.c-desc input { color: #6b7280; }
+.sheet tr.row.is-settled td.c-desc input, .sheet tr.row.is-settled td.c-card input { color: #8b95a3; }
+.sheet tr.row.is-settled td.c-date .date-btn { color: #8b95a3; }
+.sheet tr.row.is-settled .settle-chip { background: #f1f3f6; border-color: #dfe4ea; color: #7b8794; }
+.sheet tr.row.is-sel td { background: var(--sel); }
 .sheet tr.row.is-off td { opacity: .45; }
 
 /* 구분 색 띠 (열을 빼는 대신 칸 왼쪽에 3px) — 표 깨짐 없이 배경으로 긋는다 */
@@ -492,14 +506,43 @@ details.card > summary + * { margin-top: 8px; }
 }
 .toast-action { border: 0; background: none; color: #9db2ff; font-weight: 600; font-size: 12.5px; cursor: pointer; }
 
+/* ---------- v13: 맨 위로 · 종료 ---------- */
+.to-top {
+  position: fixed; right: 14px; bottom: 18px; z-index: 45;
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid #d5dbe4; background: #fff; color: #3b5bdb;
+  font-size: 17px; line-height: 1; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, .18);
+  display: flex; align-items: center; justify-content: center;
+}
+.to-top:active { background: #eef4ff; }
+/* 선택 막대가 떠 있으면 그 위로 비켜 놓는다 */
+body.has-selbar .to-top { bottom: 86px; }
+
+.exit-actions { flex-wrap: wrap; }
+.exit-actions .btn { flex: 1 1 auto; white-space: nowrap; }
+.exit-screen {
+  position: fixed; inset: 0; z-index: 90; background: #f8fafc;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.exit-box { text-align: center; max-width: 340px; }
+.exit-mark {
+  width: 52px; height: 52px; border-radius: 50%; margin: 0 auto 14px;
+  background: #e6f4ea; color: #2b8a3e; font-size: 26px;
+  display: flex; align-items: center; justify-content: center;
+}
+.exit-box h2 { font-size: 17px; margin-bottom: 6px; }
+.exit-box p { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+body.is-exited { overflow: hidden; }
+
 /* ---------- 좁은 화면: 표는 그대로, 폭만 조인다 ---------- */
 @media (max-width: 720px) {
   .filters { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
   .filters > input[type="search"] { grid-column: 1 / -1; }
   .filters select, .filters input { font-size: 11.5px; padding: 5px 5px; }
   .filters .pillbtn { font-size: 11.5px; padding: 5px 5px; }
-  .month-pop { width: 176px; }
-  .filters > input[type="search"] { grid-column: 1 / -1; }
+  .filter-reset { grid-column: 1 / -1; justify-self: end; padding: 4px 8px; font-size: 11px; }
+  .month-pop { width: 196px; }
 }
 @media (max-width: 620px) {
   body { font-size: 13px; }
@@ -537,6 +580,8 @@ details.card > summary + * { margin-top: 8px; }
   .modal { align-items: flex-end; padding: 0; }
   .modal-card { border-radius: 14px 14px 0 0; max-width: none; padding: 16px 14px calc(16px + env(safe-area-inset-bottom)); }
   .toast { bottom: 88px; }
+  .to-top { right: 12px; bottom: 16px; width: 38px; height: 38px; font-size: 16px; }
+  body.has-selbar .to-top { bottom: 116px; }
   .bar-row { grid-template-columns: 72px minmax(0, 1fr) 88px; }
   .sb-cell b { font-size: 12px; }
   .sb-cell em, .sb-cell i { font-size: 9px; }
@@ -563,6 +608,7 @@ details.card > summary + * { margin-top: 8px; }
     <span class="topacts">
       <button type="button" class="btn small ghost" id="undoBtn" disabled title="되돌릴 이력이 없어요" aria-label="실행취소">↩ 실행취소</button>
       <button type="button" class="btn small" id="saveBtn" title="지금 바로 저장">저장</button>
+      <button type="button" class="btn small ghost" id="exitBtn" title="앱을 닫고 종료">종료</button>
     </span>
   </header>
 
@@ -677,11 +723,14 @@ details.card > summary + * { margin-top: 8px; }
       <div class="month-wrap">
         <button type="button" class="pillbtn" id="monthBtn" aria-haspopup="true" aria-expanded="false" aria-controls="monthPop" title="여러 달을 함께 고를 수 있어요">전체 월 ▾</button>
         <div class="month-pop" id="monthPop" hidden>
-          <label class="check mo-all"><input type="checkbox" id="moAll" checked> 전체 월</label>
+          <div class="mo-head">
+            <label class="check mo-all"><input type="checkbox" id="moAll" checked> 전체 월</label>
+            <button type="button" class="btn small mo-done" id="monthDoneTop" title="고른 달로 닫기">선택완료</button>
+          </div>
           <div class="mo-list" id="monthList"></div>
           <div class="mo-foot">
-            <span class="muted" id="moHint">여러 달을 함께 고를 수 있어요</span>
-            <button type="button" class="linkbtn" id="monthClose">닫기</button>
+            <span class="muted" id="moHint">체크하면 바로 반영돼요</span>
+            <button type="button" class="btn small mo-done" id="monthDone" title="고른 달로 닫기">선택완료</button>
           </div>
         </div>
       </div>
@@ -698,6 +747,7 @@ details.card > summary + * { margin-top: 8px; }
         <option value="amount_desc">금액 높은순</option>
         <option value="amount_asc">금액 낮은순</option>
       </select>
+      <button type="button" class="btn ghost small filter-reset" id="filterResetBtn" title="검색어·월·카테고리·정산 필터를 모두 풀어요">필터 초기화</button>
     </div>
 
     <div id="descTools" class="desc-tools" hidden>
@@ -749,8 +799,12 @@ details.card > summary + * { margin-top: 8px; }
       <li><b>정산 표시</b> — 표에서 행을 체크하면 아래 합계가 바로 계산되고, <b>정산</b> 칸을 누르면 완료로 바뀌어요.</li>
       <li><b>카드순</b> — 정렬에서 <b>카드순</b>을 고르거나 표의 <b>카드</b> 글자를 누르면 같은 카드끼리 모여요.</li>
       <li><b>고치기·삭제</b> — 날짜 칸을 누르면 날짜·카드·구분·정산을 고칠 수 있고, 지울 때는 행을 체크한 뒤 아래 막대의 <b>삭제</b>를 눌러요.</li>
-      <li><b>월 고르기</b> — <b>전체 월</b> 단추를 눌러 <b>전체</b>를 풀고 여러 달을 한꺼번에 체크할 수 있어요. 고른 달끼리 합계·엑셀 다운도 함께 계산돼요.</li>
+      <li><b>월 고르기</b> — <b>전체 월</b> 단추를 눌러 <b>전체</b>를 풀고 여러 달을 한꺼번에 체크할 수 있어요. 체크하면 바로 표에 반영되고, 위·아래 <b>선택완료</b>를 누르면 닫혀요. 고른 달끼리 합계·엑셀 다운도 함께 계산돼요.</li>
+      <li><b>필터 초기화</b> — 검색어·월·카테고리·정산이 걸려 있으면 <b>필터 초기화</b>를 눌러 한 번에 전체로 돌려요(아래 선택 막대의 <b>해제</b>는 고른 행을 푸는 것이에요).</li>
+      <li><b>정산 완료 표시</b> — <b>정산</b>이 체크된 행은 글자가 옅어져 미정산 항목이 한눈에 보여요. 체크박스·날짜는 그대로 누를 수 있어요.</li>
+      <li><b>맨 위로</b> — 아래로 한참 내려가면 오른쪽 아래에 <b>↑</b> 단추가 나타나요. 누르면 맨 위로 돌아가요.</li>
       <li><b>실행취소·저장</b> — 오른쪽 위 <b>↩ 실행취소</b>를 누르면 바로 앞 상태(항목·이체 기록·카드 약어)로 돌아가요. 지우기·등록·고치기·정산·초기화까지 30단계까지 되돌릴 수 있어요(앱을 닫으면 이력은 사라져요). 바꾼 내용은 <b>[저장]</b>을 눌렀을 때만 저장돼요. 저장하기 전에 창을 닫거나 새로고침하면 한 번 더 물어봐요.</li>
+      <li><b>종료</b> — 오른쪽 위 <b>[종료]</b>를 누르면 앱을 닫아요. 저장하지 않은 변경이 있으면 <b>저장 후 종료</b>·<b>저장하지 않고 종료</b>·<b>계속 작업</b> 중에서 골라요. 브라우저가 탭을 닫지 못하면 종료 화면이 뜨고, 거기서 탭을 닫거나 <b>다시 열기</b>로 돌아와요.</li>
       <li><b>엑셀 다운</b> — 지금 화면에 보이는 목록(필터·정렬 그대로)을 <code>.xlsx</code>로 내려받아요. <b>지출내역</b>·<b>월별정산요약</b>·<b>입금이체내역</b> 세 장으로 저장되고 합계·잔액은 <code>=SUM</code>·<code>=SUMIF</code> 수식으로 들어가요. 인터넷이 없어 엑셀 도구를 못 불러오면 CSV로 대신 받을 수 있어요.</li>
     </ul>
   </details>
@@ -904,6 +958,29 @@ details.card > summary + * { margin-top: 8px; }
     </div>
   </div>
 </div>
+
+<div class="modal" id="exitModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="exitTitle">
+    <h3 id="exitTitle">저장하지 않은 변경</h3>
+    <p class="hint" id="exitNote">데이터가 변경된 사항이 있습니다. 저장하시겠습니까?</p>
+    <div class="modal-actions exit-actions">
+      <button type="button" class="btn primary" id="exitSave">저장 후 종료</button>
+      <button type="button" class="btn ghost danger" id="exitDiscard">저장하지 않고 종료</button>
+      <button type="button" class="btn ghost" id="exitCancel">계속 작업</button>
+    </div>
+  </div>
+</div>
+
+<div class="exit-screen" id="exitScreen" hidden>
+  <div class="exit-box">
+    <div class="exit-mark" aria-hidden="true">✓</div>
+    <h2>안전하게 종료되었습니다.</h2>
+    <p>브라우저 탭을 닫으셔도 됩니다.</p>
+    <button type="button" class="btn primary" id="reopenBtn">다시 열기</button>
+  </div>
+</div>
+
+<button type="button" class="to-top" id="toTopBtn" hidden aria-label="맨 위로" title="맨 위로">↑</button>
 
 <datalist id="cardList"></datalist>
 
@@ -2667,6 +2744,31 @@ function buildWorkbookSpec(items, deposits, opts) {
   };
 }
 
+/* ---------- v13: 필터 초기화 · 맨 위로 ---------- */
+/* 필터의 기본 상태. 정렬(sort)은 필터가 아니므로 여기에 넣지 않는다(초기화해도 그대로 둔다). */
+function filtersDefault() {
+  return { q: '', cat: 'all', allMonths: true, months: [], settle: 'all' };
+}
+
+/* 지금 필터 객체에서 검색어·카테고리·월·정산만 기본(전체)으로 되돌린다. 같은 객체를 돌려준다. */
+function filterResetInto(f) {
+  var d = filtersDefault(), k;
+  if (!f) return d;
+  for (k in d) {
+    if (d.hasOwnProperty(k)) f[k] = (k === 'months') ? [] : d[k];
+  }
+  return f;
+}
+
+/* [맨 위로] 단추는 이만큼(기본 360px) 내려갔을 때만 보인다. 값이 없거나 이상하면 숨긴다. */
+function toTopShouldShow(y, threshold) {
+  var t = (threshold === undefined || threshold === null) ? 360 : Number(threshold);
+  if (!isFinite(t)) t = 360;
+  var n = Number(y);
+  if (!isFinite(n)) n = 0;
+  return n > t;
+}
+
 /* ==CORE-END== */
 
 /* =====================================================================
@@ -2717,7 +2819,8 @@ function buildWorkbookSpec(items, deposits, opts) {
     lastSavedAt: '',
     amountPayload: null,
     amountIssues: [],
-    pendingAction: null
+    pendingAction: null,
+    exited: false
   };
 
   var toastTimer = null;
@@ -2958,6 +3061,8 @@ function buildWorkbookSpec(items, deposits, opts) {
 
   /* 브라우저 창 닫기·새로고침·뒤로가기 */
   function onBeforeUnload(e) {
+    /* v13: [종료]에서 이미 저장할지 물어봤으면 또 묻지 않는다 */
+    if (state.exited) return;
     if (!isDirty()) return;
     if (e) {
       e.preventDefault();
@@ -2979,6 +3084,67 @@ function buildWorkbookSpec(items, deposits, opts) {
     markClean();
     if (!quiet) toast('저장했어요 (' + state.lastSavedAt + ')');
     return true;
+  }
+
+  /* ---------------- v13: 종료 ---------------- */
+  /* [종료] — 저장 안 한 변경이 있으면 저장 후 종료·저장하지 않고 종료·계속 작업을 고르게 한다.
+     브라우저는 스크립트로 연 창이 아니면 닫아 주지 않으므로, 못 닫혀도 종료 화면을 보여 준다. */
+  function openExitAsk() {
+    if (!isDirty()) { doExit(); return; }
+    $('exitNote').textContent = '데이터가 변경된 사항이 있습니다. 저장하시겠습니까?';
+    $('exitModal').hidden = false;
+  }
+
+  function closeExitAsk() {
+    $('exitModal').hidden = true;
+  }
+
+  /* save true → [저장 후 종료] · false → [저장하지 않고 종료] */
+  function exitWith(save) {
+    $('exitModal').hidden = true;
+    if (save && !saveNow(true)) return;   /* 저장하지 못했으면 앱을 닫지 않는다 */
+    doExit();
+  }
+
+  function doExit() {
+    state.exited = true;
+    updateToTop();
+    try {
+      if (typeof window.close === 'function') window.close();
+    } catch (e) { /* 닫지 못해도 아래 종료 화면으로 넘어간다 */ }
+    $('exitScreen').hidden = false;
+    document.body.className = 'is-exited';
+  }
+
+  function reopenApp() {
+    state.exited = false;
+    $('exitScreen').hidden = true;
+    updateSelBar();      /* body 클래스(has-selbar)를 원래대로 돌려놓는다 */
+    renderAll();
+    updateToTop();
+  }
+
+  /* ---------------- v13: 맨 위로 ---------------- */
+  var TO_TOP_AT = 360;
+
+  function windowScrollY() {
+    if (typeof window.pageYOffset === 'number') return window.pageYOffset;
+    if (document.documentElement && document.documentElement.scrollTop) return document.documentElement.scrollTop;
+    if (document.body && document.body.scrollTop) return document.body.scrollTop;
+    return 0;
+  }
+
+  function updateToTop() {
+    var btn = $('toTopBtn');
+    if (!btn) return;
+    btn.hidden = state.exited || !toTopShouldShow(windowScrollY(), TO_TOP_AT);
+  }
+
+  function backToTop() {
+    try {
+      if (typeof window.scrollTo === 'function') window.scrollTo(0, 0);
+    } catch (e) { /* 그냥 넘어감 */ }
+    updateToTop();
   }
 
   /* ---------------- 데이터 ---------------- */
@@ -3318,6 +3484,27 @@ function buildWorkbookSpec(items, deposits, opts) {
     monthsChanged();
   }
 
+  /* ---------------- v13: 필터 초기화 ---------------- */
+  /* 검색어·월·카테고리·정산이 걸려 있으면 단추를 파랗게 해 둔다(정렬은 필터가 아니라 그대로 둔다) */
+  function updateFilterReset() {
+    var btn = $('filterResetBtn');
+    if (!btn) return;
+    var on = filtersActive();
+    btn.className = 'btn ghost small filter-reset' + (on ? ' is-on' : '');
+    btn.setAttribute('aria-disabled', on ? 'false' : 'true');
+  }
+
+  function resetFilters() {
+    if (!filtersActive()) { toast('풀 필터가 없어요'); return; }
+    filterResetInto(state.filters);
+    $('filterQ').value = '';
+    $('filterCat').value = 'all';
+    $('filterSettle').value = 'all';
+    $('moAll').checked = true;
+    monthsChanged();     /* 월 목록·표·합계·막대를 한 번에 다시 그린다 */
+    toast('필터를 모두 풀었어요');
+  }
+
   function renderCatOptions() {
     var html = '<option value="all">전체 카테고리</option>';
     for (var i = 0; i < CATEGORIES.length; i++) {
@@ -3598,6 +3785,7 @@ function buildWorkbookSpec(items, deposits, opts) {
     var keepLeft = scrollEl && scrollEl.scrollLeft ? scrollEl.scrollLeft : 0;
     state.groupIndex = {};
     renderSettleBar();
+    updateFilterReset();
 
     $('descTools').hidden = state.view !== 'desc';
 
@@ -3608,7 +3796,8 @@ function buildWorkbookSpec(items, deposits, opts) {
     }
     if (!items.length) {
       $('descResult').innerHTML = '';
-      showEmpty('조건에 맞는 내역이 없어요.<br>검색어나 필터를 바꿔 보세요.');
+      showEmpty('조건에 맞는 내역이 없어요.<br>검색어나 필터를 바꿔 보세요.' +
+        (filtersActive() ? '<br><button type="button" class="btn ghost small" data-act="filter-reset">필터 초기화</button>' : ''));
       return;
     }
 
@@ -3668,6 +3857,7 @@ function buildWorkbookSpec(items, deposits, opts) {
     renderCardDatalist();
     updateSelBar();
     refreshDirty();
+    updateToTop();
   }
 
   /* ---------------- 선택 / 정산 ---------------- */
@@ -5127,7 +5317,9 @@ function buildWorkbookSpec(items, deposits, opts) {
     $('monthBtn').addEventListener('click', function () {
       openMonthPop();
     });
-    $('monthClose').addEventListener('click', function () { openMonthPop(false); });
+    /* 위·아래 [선택완료] — 체크는 이미 바로 반영되므로 누르면 닫기만 한다 */
+    $('monthDoneTop').addEventListener('click', function () { openMonthPop(false); });
+    $('monthDone').addEventListener('click', function () { openMonthPop(false); });
     $('moAll').addEventListener('change', function () { setAllMonths(!!this.checked); });
     $('monthList').addEventListener('change', function (e) {
       var t = e.target;
@@ -5141,6 +5333,12 @@ function buildWorkbookSpec(items, deposits, opts) {
     $('filterSort').addEventListener('change', function () {
       state.filters.sort = this.value;
       renderList();
+    });
+    /* v13: 필터 초기화 — 검색어·월·카테고리·정산을 한 번에 전체로 */
+    $('filterResetBtn').addEventListener('click', resetFilters);
+    $('emptyState').addEventListener('click', function (e) {
+      var t = e.target;
+      if (t && t.getAttribute && t.getAttribute('data-act') === 'filter-reset') resetFilters();
     });
     $('descQuery').addEventListener('input', debounce(function () {
       state.descQuery = $('descQuery').value.replace(/^\s+|\s+$/g, '');
@@ -5360,6 +5558,18 @@ function buildWorkbookSpec(items, deposits, opts) {
     /* v12: 자동 저장을 없앴으니 닫기·새로고침·뒤로가기 때 저장 안 한 변경을 알린다 */
     window.addEventListener('beforeunload', onBeforeUnload);
 
+    /* v13: [종료] · 종료 화면 */
+    $('exitBtn').addEventListener('click', openExitAsk);
+    $('exitSave').addEventListener('click', function () { exitWith(true); });
+    $('exitDiscard').addEventListener('click', function () { exitWith(false); });
+    $('exitCancel').addEventListener('click', closeExitAsk);
+    $('exitModal').addEventListener('click', function (e) { if (e.target === this) closeExitAsk(); });
+    $('reopenBtn').addEventListener('click', reopenApp);
+
+    /* v13: 맨 위로 */
+    $('toTopBtn').addEventListener('click', backToTop);
+    window.addEventListener('scroll', updateToTop);
+
     /* 엑셀 라이브러리를 못 불러왔으면 다른 CDN으로 한 번 더 */
     window.addEventListener('load', function () {
       if (typeof XLSX !== 'undefined') return;
@@ -5390,6 +5600,9 @@ function buildWorkbookSpec(items, deposits, opts) {
     /* 처음에 닫혀 있는 것들 (HTML 의 hidden 과 같은 상태) */
     $('dirtyModal').hidden = true;
     $('amountModal').hidden = true;
+    $('exitModal').hidden = true;
+    $('exitScreen').hidden = true;
+    $('toTopBtn').hidden = true;
     $('monthPop').hidden = true;
     $('previewCard').hidden = true;
     $('inputCard').hidden = true;
